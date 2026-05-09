@@ -1,5 +1,5 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
+from django.shortcuts import render, get_object_or_404, redirect # type: ignore
+from django.contrib import messages # type: ignore
 from .models import Recipe, BrewSession
 from .forms import RecipeForm, BrewSessionForm
 
@@ -39,3 +39,15 @@ def session_create(request, recipe_pk):
     else:
         form = BrewSessionForm()
     return render(request, 'brews/recipe_form.html', {'form': form, 'title': f'Log Brew Session - {recipe.name}'})
+
+def dashboard(request):
+    fermenting = BrewSession.objects.filter(status='fermenting').order_by('-brew_date')
+    conditioning = BrewSession.objects.filter(status='conditioning').order_by('-brew_date')
+    ready = BrewSession.objects.filter(status='ready').order_by('-brew_date')
+    archived = BrewSession.objects.filter(status='archived').order_by('-brew_date')
+    return render(request, 'brews/dashboard.html', {
+        'fermenting': fermenting,
+        'conditioning': conditioning,
+        'ready': ready,
+        'archived': archived,
+    })

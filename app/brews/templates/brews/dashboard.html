@@ -1,0 +1,67 @@
+{% extends "brews/base.html" %}
+
+{% block title %}YeastMode - Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Active Brews</h1>
+</div>
+
+{% if fermenting %}
+    <div class="row">
+        {% for session in fermenting %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ session.recipe.name }}</h5>
+                    <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
+                    {% if session.recipe.style %}
+                        <p class="card-text text-muted">{{ session.recipe.style }}</p>
+                    {% endif %}
+                    {% if session.recipe.description %}
+                        <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
+                    {% endif %}
+                    <p class="card-text">
+                        <small class="text-muted">
+                            {{ session.count }} batch{{ session.count|pluralize:"es" }}
+                        </small>
+                    </p>
+                </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if conditioning %}
+    <div class="row">
+        {% for session in conditioning %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ session.recipe.name - session.batch_number }}</h5>
+                    <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
+                    {% if session.recipe.style %}
+                        <p class="card-text text-muted">{{ session.recipe.style }}</p>
+                    {% endif %}
+                    {% if session.recipe.description %}
+                        <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
+                    {% endif %}
+                    <p class="card-text">
+                        ">Brewed:"
+                    </p>
+                </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center mt-5">
+        <h3>No batches yet!</h3>
+        <p class="text-muted">Start by adding your first batch.</p>
+        <a href="{% url 'recipe_detail' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Add Your First Batch
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
