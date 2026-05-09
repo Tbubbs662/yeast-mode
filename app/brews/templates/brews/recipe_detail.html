@@ -1,0 +1,89 @@
+{% extends "brews/base.html" %}
+
+{% block title %}YeastMode - {{ recipe.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="/" class="text-muted text-decoration-none">← Back to Recipes</a>
+        <h1 class="mt-1">{{ recipe.name }}</h1>
+        <span class="badge bg-warning text-dark">{{ recipe.get_brew_type_display }}</span>
+        {% if recipe.style %}
+            <span class="text-muted ms-2">{{ recipe.style }}</span>
+        {% endif %}
+    </div>
+    <a href="{% url 'session_create' recipe.pk %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Log Brew Session
+    </a>
+</div>
+
+{% if recipe.description %}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Description</h5>
+        <p class="card-text">{{ recipe.description }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if recipe.notes %}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Notes</h5>
+        <p class="card-text">{{ recipe.notes }}</p>
+    </div>
+</div>
+{% endif %}
+
+<h3 class="mb-3">Brew Sessions</h3>
+
+{% if recipe.sessions.all %}
+    <div class="row">
+        {% for session in recipe.sessions.all %}
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Batch #{{ session.batch_number }}</h5>
+                        <span class="badge badge-{{ session.status }}">
+                            {{ session.get_status_display }}
+                        </span>
+                    </div>
+                    <p class="text-muted">Brewed: {{ session.brew_date }}</p>
+                    <div class="row text-center mt-3">
+                        <div class="col">
+                            <small class="text-muted">OG</small>
+                            <p class="mb-0">{{ session.original_gravity|default:"—" }}</p>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">FG</small>
+                            <p class="mb-0">{{ session.final_gravity|default:"—" }}</p>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted">ABV</small>
+                            <p class="mb-0">
+                                {% if session.abv %}
+                                    {{ session.abv }}%
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% if session.notes %}
+                        <p class="card-text mt-3">{{ session.notes|truncatewords:20 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center mt-3">
+        <p class="text-muted">No brew sessions yet for this recipe.</p>
+        <a href="{% url 'session_create' recipe.pk %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Log First Batch
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
