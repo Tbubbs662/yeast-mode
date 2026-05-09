@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: yeastmode
+      POSTGRES_USER: yeastmode_user
+      POSTGRES_PASSWORD: yeastmode_pass
+
+  web:
+    build: ./app
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./app:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://yeastmode_user:yeastmode_pass@db:5432/yeastmode
+      DEBUG: "True"
+      SECRET_KEY: dev-secret-key-change-in-production
+
+volumes:
+  postgres_data:
