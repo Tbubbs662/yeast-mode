@@ -40,6 +40,10 @@ def session_create(request, recipe_pk):
         form = BrewSessionForm()
     return render(request, 'brews/recipe_form.html', {'form': form, 'title': f'Log Brew Session - {recipe.name}'})
 
+def session_detail(request, pk):
+    session = get_object_or_404(BrewSession, pk=pk)
+    return render(request, 'brews/session_details.html', {'session': session})
+
 def dashboard(request):
     fermenting = BrewSession.objects.filter(status='fermenting').order_by('-brew_date')
     conditioning = BrewSession.objects.filter(status='conditioning').order_by('-brew_date')
