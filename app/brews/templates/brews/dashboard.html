@@ -7,6 +7,7 @@
     <h1>Active Brews</h1>
 </div>
 
+<h3>Fermenting</h3>
 {% if fermenting %}
     <div class="row">
         {% for session in fermenting %}
@@ -22,14 +23,16 @@
                         <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
                     {% endif %}
                     <p class="card-text" style="color: #adb5bd;">
-                        "Brewed: {{ session.brew_date}}"
-                </div>
+                        Brewed: {{ session.brew_date}}
+                    </p>
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
     {% endif %}
+
+    <h3>Conditioning</h3>
     {% if conditioning %}
     <div class="row">
         {% for session in conditioning %}
@@ -45,15 +48,16 @@
                         <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
                     {% endif %}
                     <p class="card-text" style="color: #adb5bd;">
-                        "Brewed: {{ session.brew_date}}"
+                        Brewed: {{ session.brew_date}}
                     </p>
-                </div>
                 </div>
             </div>
         </div>
         {% endfor %}
-    </div>
+    </div> 
     {% endif %}
+
+    <h3>Ready</h3>
     {% if ready %}
     <div class="row">
         {% for session in ready %}
@@ -69,15 +73,16 @@
                         <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
                     {% endif %}
                     <p class="card-text" style="color: #adb5bd;">
-                        "Brewed: {{ session.brew_date}}"
+                        Brewed: {{ session.brew_date}}
                     </p>
-                </div>
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
     {% endif %}
+
+    <h3>Archived</h3>
     {% if archived %}
     <div class="row">
         {% for session in archived %}
@@ -93,15 +98,14 @@
                         <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
                     {% endif %}
                     <p class="card-text" style="color: #adb5bd;">
-                        "Brewed: {{ session.brew_date}}"
+                        Brewed: {{ session.brew_date}}
                     </p>
-                </div>
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
-{% else %}
+    {% endif %}
     <div class="text-center mt-5">
         <h3>No batches yet!</h3>
         <p class="text-muted">Start by adding your first batch.</p>
@@ -109,5 +113,4 @@
             <i class="bi bi-plus-lg"></i> Add Your First Batch
         </a>
     </div>
-{% endif %}
 {% endblock %}

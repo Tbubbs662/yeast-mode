@@ -24,7 +24,8 @@
         <div class="container">
             <a class="navbar-brand" href="/">🍺 YeastMode</a>
             <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/">Recipes</a>
+                <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
+                <a class="nav-link" href="{% url 'recipe_list' %}">Recipes</a>
             </div>
         </div>
     </nav>
