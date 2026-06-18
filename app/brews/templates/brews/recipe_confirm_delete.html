@@ -1,0 +1,27 @@
+{% extends "brews/base.html" %}
+
+{% block title %}YeastMode - {{ recipe.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title mb-4">{{ recipe.name }}</h2>
+                <p>Are you sure you want to delete <strong>{{ recipe.name }}</strong>? This cannot be undone.</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <a href="javascript:history.back()" class="btn btn-secondary">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            Yes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -12,9 +12,17 @@
             <span class="text-muted ms-2">{{ recipe.style }}</span>
         {% endif %}
     </div>
-    <a href="{% url 'session_create' recipe.pk %}" class="btn btn-primary">
-        <i class="bi bi-plus-lg"></i> Log Brew Session
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'session_create' recipe.pk %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Log Brew Session
+        </a>
+        <a href="{% url 'recipe_edit' recipe.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> Edit Recipe
+        </a>
+        <a href="{% url 'recipe_delete' recipe.pk %}" class="btn btn-danger">
+            <i class="bi bi-trash"></i> Delete Recipe
+        </a>
+    </div>
 </div>
 
 {% if recipe.description %}

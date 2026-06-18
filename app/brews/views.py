@@ -25,6 +25,27 @@ def recipe_create(request):
         form = RecipeForm()
     return render(request, 'brews/recipe_form.html', {'form': form, 'title': 'New Recipe'})
 
+def recipe_edit(request, recipe_pk):
+    recipe = get_object_or_404(Recipe, pk=recipe_pk)
+    if request.method == 'POST':
+        form = RecipeForm(request.POST, instance=recipe)
+        if form.is_valid():
+            recipe = form.save()
+            messages.success(request, f'Recipe "{recipe.name}" has been updated successfully!')
+            return redirect('recipe_detail', pk=recipe.pk)
+    else:
+        form = RecipeForm(instance=recipe)
+    return render(request, 'brews/recipe_form.html', {'form': form, 'title': recipe.name})
+
+def recipe_delete(request,recipe_pk):
+    recipe = get_object_or_404(Recipe, pk=recipe_pk)
+    if request.method == 'POST':
+        recipe.delete()
+        messages.success(request, f'Recipe "{recipe.name}" has been deleted successfully!')
+        return redirect('recipe_list')
+    else:
+        return render(request, 'brews/recipe_confirm_delete.html', {'recipe': recipe})
+
 
 def session_create(request, recipe_pk):
     recipe = get_object_or_404(Recipe, pk=recipe_pk)
