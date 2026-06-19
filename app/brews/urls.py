@@ -9,5 +9,7 @@ urlpatterns = [
     path('recipe/<int:recipe_pk>/edit/', views.recipe_edit, name='recipe_edit'),
     path('recipe/<int:recipe_pk>/delete/', views.recipe_delete, name='recipe_delete'),
     path('recipe/<int:recipe_pk>/session/new/', views.session_create, name='session_create'),
-    path('session/<int:pk>/', views.session_detail, name='session_details'),
+    path('session/<int:pk>/', views.session_detail, name='session_detail'),
+    path('session/<int:pk>/edit/', views.session_edit, name='session_edit'),
+    path('session/<int:pk>/delete/', views.session_delete, name='session_delete'),
 ]

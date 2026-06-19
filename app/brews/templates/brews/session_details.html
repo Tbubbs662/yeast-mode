@@ -32,6 +32,14 @@
         {% if session.notes%}
         <p class="card-text" style="color: #adb5bd">Notes: {{ session.notes }}</p>
         {% endif %}
+        <div class="d-flex gap-2">
+        <a href="{% url 'session_edit' session.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> Edit Session
+        </a>
+        <a href="{% url 'session_delete' session.pk %}" class="btn btn-danger">
+            <i class="bi bi-trash"></i> Delete Session
+        </a>
+    </div>
     </div>
 </div>
 

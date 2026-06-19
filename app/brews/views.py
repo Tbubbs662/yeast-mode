@@ -61,6 +61,28 @@ def session_create(request, recipe_pk):
         form = BrewSessionForm()
     return render(request, 'brews/recipe_form.html', {'form': form, 'title': f'Log Brew Session - {recipe.name}'})
 
+def session_edit(request, pk):
+    session = get_object_or_404(BrewSession, pk=pk)
+    if request.method == 'POST':
+        form = BrewSessionForm(request.POST, instance=session)
+        if form.is_valid():
+            session = form.save()
+            messages.success(request, f'{session.recipe.name} batch {session.batch_number} has been updated successfully!')
+            return redirect('session_detail', pk=pk)
+    else:
+        form = BrewSessionForm(instance=session)
+    return render(request, 'brews/session_edit.html', {'form': form, 'title': session.batch_number, 'session': session})
+
+def session_delete(request, pk):
+    session = get_object_or_404(BrewSession, pk=pk)
+    recipe_pk = session.recipe.pk
+    if request.method == 'POST':
+        session.delete()
+        messages.success(request, f'{session.recipe.name} batch {session.batch_number} has been deleted successfully!')
+        return redirect('recipe_detail', recipe_pk)
+    else:
+        return render(request, 'brews/session_confirm_delete.html', {'session': session})
+
 def session_detail(request, pk):
     session = get_object_or_404(BrewSession, pk=pk)
     return render(request, 'brews/session_details.html', {'session': session})
