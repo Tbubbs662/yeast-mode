@@ -55,6 +55,9 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'yeastmode.urls'
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'landing'
 
 TEMPLATES = [
     {
