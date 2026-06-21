@@ -1,0 +1,21 @@
+{% extends "brews/base.html" %}
+
+{% block title %}YeastMode{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title mb-4">Welcome to YeastMode!</h2>
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'login' %}" class="btn btn-primary">
+                            Login
+                    </a>
+                    <a href="{% url 'signup' %}" class="btn btn-primary">Sign up</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
