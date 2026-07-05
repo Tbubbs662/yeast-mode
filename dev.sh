@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Fixing Permissions..."
-sudo chown -R caleb:caleb .
+sudo chown -R $USER:$USER .
 
 echo "Starting Docker..."
 docker compose up -d
