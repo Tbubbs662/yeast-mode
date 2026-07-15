@@ -5,7 +5,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <a href="/" class="text-decoration-none">← Back to Recipes</a>
+        <a href="{% url 'recipe_list' %}" class="text-decoration-none">← Back to Recipes</a>
         <h1 class="mt-1">{{ recipe.name }}</h1>
         <span class="badge bg-warning text-dark">{{ recipe.get_brew_type_display }}</span>
         {% if recipe.style %}
