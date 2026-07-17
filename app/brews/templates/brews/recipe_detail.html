@@ -9,7 +9,7 @@
         <h1 class="mt-1">{{ recipe.name }}</h1>
         <span class="badge bg-warning text-dark">{{ recipe.get_brew_type_display }}</span>
         {% if recipe.style %}
-            <span class="text-muted ms-2">{{ recipe.style }}</span>
+            <span class="">{{ recipe.style }}</span>
         {% endif %}
     </div>
     <div class="d-flex gap-2">
@@ -29,6 +29,9 @@
 <div class="card mb-4">
     <div class="card-body">
         <h5 class="card-title">Description</h5>
+        <p class="card-text">Target Gravity: {{ recipe.target_gravity }}</p>
+        <p class="card-text">Target Final Gravity: {{ recipe.target_final_gravity }}</p>
+        <p class="card-text">Target ABV: {{ recipe.abv }}</p>
         <p class="card-text">{{ recipe.description }}</p>
     </div>
 </div>

@@ -16,6 +16,8 @@ class Recipe(models.Model):
 
     name = models.CharField(max_length=200)
     brew_type = models.CharField(max_length=20, choices=BREW_TYPE_CHOICES, default=BEER)
+    target_gravity = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True)
+    target_final_gravity = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True)
     style = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
     notes = models.TextField(blank=True)
@@ -23,6 +25,12 @@ class Recipe(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recipes')
 
+    @property
+    def abv(self):
+        if self.target_gravity and self.target_final_gravity:
+            return round((float(self.target_gravity) - float(self.target_final_gravity)) * 131.25, 2)
+        return None
+    
     def __str__(self):
         return self.name
     
