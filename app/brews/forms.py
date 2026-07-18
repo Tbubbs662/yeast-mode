@@ -5,11 +5,13 @@ from .models import Recipe, BrewSession
 class RecipeForm(forms.ModelForm):
     class Meta:
         model = Recipe
-        fields = ['name', 'brew_type', 'style', 'description', 'notes']
+        fields = ['name', 'brew_type', 'style', 'target_gravity', 'target_final_gravity', 'description', 'notes']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'brew_type': forms.Select(attrs={'class': 'form-select'}),
             'style': forms.TextInput(attrs={'class': 'form-control'}),
+            'target_gravity': forms.TextInput(attrs={'class': 'form-control'}),
+            'target_final_gravity': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
