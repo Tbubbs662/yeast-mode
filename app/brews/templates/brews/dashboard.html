@@ -6,118 +6,127 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Active Brews</h1>
 </div>
-
-<h3>Fermenting</h3>
-{% if fermenting %}
-    <div class="row">
-        {% for session in fermenting %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">{{ session.recipe.name }} - Batch #{{session.batch_number}}</h5>
-                    <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
-                    {% if session.recipe.style %}
-                        <p class="card-text text-muted">{{ session.recipe.style }}</p>
-                    {% endif %}
-                    {% if session.recipe.description %}
-                        <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
-                    {% endif %}
-                    <p class="card-text" style="color: #adb5bd;">
-                        Brewed: {{ session.brew_date}}
-                    </p>   
-                </div>
-                <div class="card-footer">
-                        <a href="{% url 'session_detail' session.pk %}" class="btn btn-primary btn-sm">View Details</a>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
+<div class="row my-4" >
+    <div class="col-md-6 mx-auto" style="max-width: 500px;">
+        <canvas id="brewStatusChart"></canvas>
     </div>
-    {% endif %}
-
-    <h3>Conditioning</h3>
-    {% if conditioning %}
-    <div class="row">
-        {% for session in conditioning %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">{{ session.recipe.name }} - Batch #{{session.batch_number}}</h5>
-                    <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
-                    {% if session.recipe.style %}
-                        <p class="card-text text-muted">{{ session.recipe.style }}</p>
-                    {% endif %}
-                    {% if session.recipe.description %}
-                        <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
-                    {% endif %}
-                    <p class="card-text" style="color: #adb5bd;">
-                        Brewed: {{ session.brew_date}}
-                    </p>
-                </div>
-                <div class="card-footer">
-                        <a href="{% url 'session_detail' session.pk %}" class="btn btn-primary btn-sm">View Details</a>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div> 
-    {% endif %}
-
-    <h3>Ready</h3>
-    {% if ready %}
-    <div class="row">
-        {% for session in ready %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">{{ session.recipe.name }} - Batch #{{session.batch_number}}</h5>
-                    <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
-                    {% if session.recipe.style %}
-                        <p class="card-text text-muted">{{ session.recipe.style }}</p>
-                    {% endif %}
-                    {% if session.recipe.description %}
-                        <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
-                    {% endif %}
-                    <p class="card-text" style="color: #adb5bd;">
-                        Brewed: {{ session.brew_date}}
-                    </p>
-                </div>
-                <div class="card-footer">
-                        <a href="{% url 'session_detail' session.pk %}" class="btn btn-primary btn-sm">View Details</a>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
+    <div class="col-md-6 mx-auto" style="max-width: 300px;">
+        <canvas id="brewByType"></canvas>
     </div>
-    {% endif %}
-
-    <h3>Archived</h3>
-    {% if archived %}
-    <div class="row">
-        {% for session in archived %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">{{ session.recipe.name }} - Batch #{{session.batch_number}}</h5>
-                    <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
-                    {% if session.recipe.style %}
-                        <p class="card-text text-muted">{{ session.recipe.style }}</p>
-                    {% endif %}
-                    {% if session.recipe.description %}
-                        <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
-                    {% endif %}
-                    <p class="card-text" style="color: #adb5bd;">
-                        Brewed: {{ session.brew_date}}
-                    </p>
-                </div>
-                <div class="card-footer">
-                        <a href="{% url 'session_detail' session.pk %}" class="btn btn-primary btn-sm">View Details</a>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
+</div>
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <h3 class="column-header-fermenting">Fermenting</h3>
+        {% if fermenting %}
+                {% for session in fermenting %}
+                    <div class="card my-4">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ session.recipe.name }} - Batch #{{session.batch_number}}</h5>
+                            <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
+                            {% if session.recipe.style %}
+                                <p class="card-text text-muted">{{ session.recipe.style }}</p>
+                            {% endif %}
+                            {% if session.recipe.description %}
+                                <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
+                            {% endif %}
+                            <p class="card-text" style="color: #adb5bd;">
+                                Brewed: {{ session.brew_date}}
+                            </p>   
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'session_detail' session.pk %}" class="btn btn-primary btn-sm">View Details</a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-center">No active brews!</p>
+            {% endif %}
     </div>
-    {% endif %}
+
+    <div class="col-md-3 mb-4">
+        <h3 class="column-header-conditioning">Conditioning</h3>
+        {% if conditioning %}
+            {% for session in conditioning %}
+                <div class="card my-4">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ session.recipe.name }} - Batch #{{session.batch_number}}</h5>
+                        <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
+                        {% if session.recipe.style %}
+                            <p class="card-text text-muted">{{ session.recipe.style }}</p>
+                        {% endif %}
+                        {% if session.recipe.description %}
+                            <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <p class="card-text" style="color: #adb5bd;">
+                            Brewed: {{ session.brew_date}}
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                            <a href="{% url 'session_detail' session.pk %}" class="btn btn-primary btn-sm">View Details</a>
+                    </div>
+                </div>
+            {% endfor %} 
+        {% else %}
+            <p class="text-center">No active brews!</p>
+        {% endif %}
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <h3 class="column-header-ready">Ready</h3>
+        {% if ready %}
+            {% for session in ready %}
+                <div class="card my-4">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ session.recipe.name }} - Batch #{{session.batch_number}}</h5>
+                        <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
+                        {% if session.recipe.style %}
+                            <p class="card-text text-muted">{{ session.recipe.style }}</p>
+                        {% endif %}
+                        {% if session.recipe.description %}
+                            <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <p class="card-text" style="color: #adb5bd;">
+                            Brewed: {{ session.brew_date}}
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                            <a href="{% url 'session_detail' session.pk %}" class="btn btn-primary btn-sm">View Details</a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-center">No active brews!</p>
+        {% endif %}
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <h3 class="column-header-archived">Archived</h3>
+        {% if archived %}
+            {% for session in archived %}
+                <div class="card my-4">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ session.recipe.name }} - Batch #{{session.batch_number}}</h5>
+                        <span class="badge bg-warning text-dark mb-2">{{ session.recipe.get_brew_type_display }}</span>
+                        {% if session.recipe.style %}
+                            <p class="card-text text-muted">{{ session.recipe.style }}</p>
+                        {% endif %}
+                        {% if session.recipe.description %}
+                            <p class="card-text">{{ session.recipe.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <p class="card-text" style="color: #adb5bd;">
+                            Brewed: {{ session.brew_date}}
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                            <a href="{% url 'session_detail' session.pk %}" class="btn btn-primary btn-sm">View Details</a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-center">No active brews!</p>
+        {% endif %}
+    </div>
+</div>
 
 {% if not fermenting and not conditioning and not ready and not archived %}
     <div class="text-center mt-5">
@@ -128,4 +137,58 @@
         </a>
     </div>
 {% endif %}
+        <script>
+            const ctx = document.getElementById('brewStatusChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Fermenting', 'Conditioning', 'Ready', 'Archived'],
+                    datasets: [{
+                        label: 'Brews by Status',
+                        data: [
+                            {{ fermenting|length }},
+                            {{ conditioning|length}},
+                            {{ ready|length }}, 
+                            {{ archived|length }}
+                        ],
+                        backgroundColor: [
+                            '#17a2b8',
+                            '#ffc107',
+                            '#28a745',
+                            '#6c757d'
+                        ],
+                    }],
+                },
+                options: {
+                    responsive: true,
+                }
+            });
+        </script>
+        <script>
+            const ctx2 = document.getElementById('brewByType').getContext('2d');
+            new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Beer', 'Mead', 'Cider', 'Other'],
+                    datasets: [{
+                        label: 'Brews By Type',
+                        data: [
+                            {{ beer }},
+                            {{ mead }},
+                            {{ cider }}, 
+                            {{ other }}
+                        ],
+                        backgroundColor: [
+                            '#17a2b8',
+                            '#ffc107',
+                            '#28a745',
+                            '#6c757d'
+                        ],
+                    }],
+                },
+                options: {
+                    responsive: true,
+                }
+            });
+        </script>
 {% endblock %}

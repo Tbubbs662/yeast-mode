@@ -118,9 +118,17 @@ def dashboard(request):
     conditioning = BrewSession.objects.filter(status='conditioning').filter(recipe__owner=request.user).order_by('-brew_date')
     ready = BrewSession.objects.filter(status='ready').filter(recipe__owner=request.user).order_by('-brew_date')
     archived = BrewSession.objects.filter(status='archived').filter(recipe__owner=request.user).order_by('-brew_date')
+    beer_count = Recipe.objects.filter(owner=request.user, brew_type='beer').count()
+    mead_count = Recipe.objects.filter(owner=request.user, brew_type='mead').count()
+    cider_count = Recipe.objects.filter(owner=request.user, brew_type='cider').count()
+    other_count = Recipe.objects.filter(owner=request.user, brew_type='other').count()
     return render(request, 'brews/dashboard.html', {
         'fermenting': fermenting,
         'conditioning': conditioning,
         'ready': ready,
         'archived': archived,
+        'beer': beer_count,
+        'mead': mead_count,
+        'cider': cider_count,
+        'other': other_count
     })
