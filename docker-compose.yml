@@ -21,6 +21,7 @@ services:
       DATABASE_URL: postgres://yeastmode_user:yeastmode_pass@db:5432/yeastmode
       DEBUG: "True"
       SECRET_KEY: dev-secret-key-change-in-production
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,192.168.4.36
 
 volumes:
   postgres_data:
