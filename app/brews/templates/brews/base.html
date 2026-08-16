@@ -27,7 +27,7 @@
 <body>
     <nav class="navbar navbar-expand-lg mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/">🍺 YeastMode</a>
+            <a class="navbar-brand" href="{% url 'dashboard' %}">🍺 YeastMode</a>
             {% if user.is_authenticated %}
             <div class="navbar-nav ms-auto">
                 <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
