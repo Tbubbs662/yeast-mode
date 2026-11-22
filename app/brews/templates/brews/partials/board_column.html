@@ -1,0 +1,22 @@
+<section class="board-column">
+    <div class="board-column-header">
+        <span><span class="dot dot-{{ status }}"></span>{{ label }}</span>
+        <span class="count">{{ sessions|length }}</span>
+    </div>
+    {% for session in sessions %}
+        <article class="card brew-card card-link-wrap">
+            <div class="card-body">
+                <h3 class="card-title">
+                    <a href="{% url 'session_detail' session.pk %}" class="stretched-link">{{ session.recipe.name }}</a>
+                </h3>
+                <div class="meta mb-2">Batch #{{ session.batch_number }}{% if session.recipe.style %} · {{ session.recipe.style }}{% endif %}</div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="pill pill-type">{{ session.recipe.get_brew_type_display }}</span>
+                    <span class="meta"><i class="bi bi-calendar3"></i>{{ session.brew_date|date:"M j" }}</span>
+                </div>
+            </div>
+        </article>
+    {% empty %}
+        <div class="board-empty">Nothing here yet</div>
+    {% endfor %}
+</section>

@@ -3,19 +3,13 @@
 {% block title %}YeastMode{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-body">
-                <h2 class="card-title mb-4">Welcome to YeastMode!</h2>
-                <div class="d-flex justify-content-between mt-4">
-                    <a href="{% url 'login' %}" class="btn btn-primary">
-                            Login
-                    </a>
-                    <a href="{% url 'signup' %}" class="btn btn-primary">Sign up</a>
-                </div>
-            </div>
-        </div>
+<section class="hero">
+    <span class="pill pill-type mb-3">Homebrew tracker</span>
+    <h1>Brew better with <span>YeastMode</span></h1>
+    <p>Keep your recipes, log every batch, and see what's fermenting, conditioning and ready to pour at a glance.</p>
+    <div class="d-flex flex-wrap gap-2 justify-content-center">
+        <a href="{% url 'signup' %}" class="btn btn-primary btn-lg px-4">Get started</a>
+        <a href="{% url 'login' %}" class="btn btn-ghost btn-lg px-4">Log in</a>
     </div>
-</div>
+</section>
 {% endblock %}

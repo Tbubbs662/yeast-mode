@@ -1,6 +1,34 @@
 from django.db import models # type: ignore
 from django.contrib.auth.models import User # type: ignore
 
+class Hop(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.name}"
+
+class Grain(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.name}"
+
+class Adjunct(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.name}"
+
+class Yeast(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.name}"
+
 class Recipe(models.Model):
     BEER = 'beer'
     MEAD = 'mead'
@@ -24,6 +52,10 @@ class Recipe(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recipes')
+    hops = models.ManyToManyField(Hop, blank=True)
+    grains = models.ManyToManyField(Grain, blank=True)
+    adjuncts = models.ManyToManyField(Adjunct, blank=True)
+    yeast = models.ForeignKey(Yeast, on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def abv(self):
@@ -65,4 +97,3 @@ class BrewSession(models.Model):
     
     def __str__(self):
         return f"{self.recipe.name} - Batch #{self.batch_number}"
-

@@ -3,45 +3,47 @@
 {% block title %}YeastMode - My Recipes{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>My Recipes</h1>
+<div class="page-header">
+    <div>
+        <h1>My Recipes</h1>
+        <p class="text-muted mb-0">{{ recipes|length }} recipe{{ recipes|length|pluralize }}</p>
+    </div>
     <a href="{% url 'recipe_create' %}" class="btn btn-primary">
         <i class="bi bi-plus-lg"></i> New Recipe
     </a>
 </div>
 
 {% if recipes %}
-    <div class="row">
+    <div class="row g-3">
         {% for recipe in recipes %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">{{ recipe.name }}</h5>
-                    <span class="badge bg-warning text-dark mb-2">{{ recipe.get_brew_type_display }}</span>
+        <div class="col-sm-6 col-lg-4">
+            <article class="card h-100 card-link-wrap">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <h2 class="card-title h5 mb-0">
+                            <a href="{% url 'recipe_detail' recipe.pk %}" class="stretched-link">{{ recipe.name }}</a>
+                        </h2>
+                        <span class="pill pill-type">{{ recipe.get_brew_type_display }}</span>
+                    </div>
                     {% if recipe.style %}
-                        <p class="card-text text-muted">{{ recipe.style }}</p>
+                        <p class="text-muted small mb-2">{{ recipe.style }}</p>
                     {% endif %}
                     {% if recipe.description %}
-                        <p class="card-text">{{ recipe.description|truncatewords:20 }}</p>
+                        <p class="card-text small">{{ recipe.description|truncatewords:20 }}</p>
                     {% endif %}
-                    <p class="card-text">
-                        <small class="text-muted">
-                            {{ recipe.sessions.count }} batch{{ recipe.sessions.count|pluralize:"es" }}
-                        </small>
-                    </p>
+                    <div class="d-flex gap-3 mt-auto pt-2 small text-muted">
+                        <span><i class="bi bi-layers me-1"></i>{{ recipe.sessions.count }} batch{{ recipe.sessions.count|pluralize:"es" }}</span>
+                        {% if recipe.abv %}<span><i class="bi bi-percent me-1"></i>{{ recipe.abv }}% ABV</span>{% endif %}
+                    </div>
                 </div>
-                <div class="card-footer">
-                    <a href="{% url 'recipe_detail' recipe.pk %}" class="btn btn-primary btn-sm">
-                        View Details
-                    </a>
-                </div>
-            </div>
+            </article>
         </div>
         {% endfor %}
     </div>
 {% else %}
-    <div class="text-center mt-5">
-        <h3>No recipes yet!</h3>
+    <div class="empty-state">
+        <i class="bi bi-journal-plus"></i>
+        <h3 class="mt-3">No recipes yet</h3>
         <p class="text-muted">Start by adding your first recipe.</p>
         <a href="{% url 'recipe_create' %}" class="btn btn-primary">
             <i class="bi bi-plus-lg"></i> Add Your First Recipe
