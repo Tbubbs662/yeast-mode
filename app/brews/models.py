@@ -2,29 +2,41 @@ from django.db import models # type: ignore
 from django.contrib.auth.models import User # type: ignore
 
 class Hop(models.Model):
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return f"{self.name}"
 
 class Grain(models.Model):
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return f"{self.name}"
 
 class Adjunct(models.Model):
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return f"{self.name}"
 
 class Yeast(models.Model):
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, unique=True)
     description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return f"{self.name}"
