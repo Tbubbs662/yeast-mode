@@ -9,11 +9,15 @@
         <h1 class="h3 mb-4">{{ title }}</h1>
         <form method="post">
             {% csrf_token %}
-            {% include "brews/partials/form_fields.html" %}
+            {% include "brews/partials/form_fields.html" with fields=form.main_fields %}
 
             {% for section in ingredient_sections %}
                 {% include "brews/partials/ingredient_section.html" %}
             {% endfor %}
+
+            {% if form.yeast_fields %}
+                {% include "brews/partials/yeast_section.html" %}
+            {% endif %}
 
             <div class="form-actions">
                 <a href="javascript:history.back()" class="btn btn-ghost">Cancel</a>

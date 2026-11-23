@@ -3,9 +3,14 @@ from .models import Recipe, BrewSession, RecipeAdjunct, RecipeGrain, RecipeHop
 
 
 class RecipeForm(forms.ModelForm):
+    # Rendered in their own "Yeast" section after the ingredient formsets,
+    # rather than with the main recipe fields.
+    YEAST_FIELDS = ('yeast', 'yeast_amount')
+
     class Meta:
         model = Recipe
-        fields = ['name', 'brew_type', 'style', 'target_gravity', 'target_final_gravity', 'description', 'notes']
+        fields = ['name', 'brew_type', 'style', 'target_gravity', 'target_final_gravity', 'description', 'notes', 'yeast', 'yeast_amount']
+        labels = {'yeast_amount': 'Packets / vials'}
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'brew_type': forms.Select(attrs={'class': 'form-select'}),
@@ -14,7 +19,25 @@ class RecipeForm(forms.ModelForm):
             'target_final_gravity': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'yeast': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Yeast'}),
+            'yeast_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0.01', 'placeholder': 'e.g. 1', 'aria-label': 'Packets / vials'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['yeast'].empty_label = 'No yeast chosen yet'
+
+    def main_fields(self):
+        return [field for field in self if field.name not in self.YEAST_FIELDS]
+
+    def yeast_fields(self):
+        return [self[name] for name in self.YEAST_FIELDS]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('yeast_amount') and not cleaned_data.get('yeast'):
+            self.add_error('yeast', 'Choose a yeast for this amount.')
+        return cleaned_data
 
 
 class RecipeHopForm(forms.ModelForm):

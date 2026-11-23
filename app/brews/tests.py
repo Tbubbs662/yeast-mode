@@ -391,3 +391,57 @@ class RecipeGrainAdjunctFormViewTest(RecipeFormPostMixin, TestCase):
         self.assertRedirects(response, f'/recipe/{recipe.pk}/')
         self.assertEqual([str(g) for g in recipe.grain_bill.all()], ['11 lb 2-Row Pale Malt', '1 lb Crystal 40L'])
         self.assertEqual([str(a) for a in recipe.adjunct_additions.all()], ['1 oz Orange Peel (Boil)'])
+
+
+class RecipeYeastFormViewTest(RecipeFormPostMixin, TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username='brewer', password='brewer123')
+        self.client.force_login(self.owner)
+        self.us05 = Yeast.objects.get(name='SafAle US-05')
+
+    def test_yeast_section_comes_after_ingredients(self):
+        response = self.client.get('/recipe/new/')
+        html = response.content.decode()
+        self.assertContains(response, 'No yeast chosen yet')
+        self.assertContains(response, 'Lalvin EC-1118')
+        self.assertLess(html.index('data-formset="adjuncts"'), html.index('name="yeast"'))
+        self.assertLess(html.index('name="notes"'), html.index('name="yeast"'))
+
+    def test_session_form_has_no_yeast_section(self):
+        recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner)
+        response = self.client.get(f'/recipe/{recipe.pk}/session/new/')
+        self.assertNotContains(response, 'name="yeast"')
+        self.assertContains(response, 'name="batch_number"')
+
+    def test_create_recipe_with_yeast(self):
+        response = self.client.post('/recipe/new/', self.post_data(yeast=self.us05.pk, yeast_amount='2'))
+        recipe = Recipe.objects.get(name='Pale Ale')
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertEqual(recipe.yeast, self.us05)
+        self.assertEqual(recipe.yeast_amount, Decimal('2'))
+
+    def test_yeast_is_optional(self):
+        response = self.client.post('/recipe/new/', self.post_data(yeast='', yeast_amount=''))
+        recipe = Recipe.objects.get(name='Pale Ale')
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertIsNone(recipe.yeast)
+
+    def test_amount_without_yeast_is_rejected(self):
+        response = self.client.post('/recipe/new/', self.post_data(yeast='', yeast_amount='1'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Yeast: Choose a yeast for this amount.')
+        self.assertFalse(Recipe.objects.exists())
+
+    def test_edit_changes_and_clears_yeast(self):
+        recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner, yeast=self.us05, yeast_amount=Decimal('1'))
+        response = self.client.get(f'/recipe/{recipe.pk}/edit/')
+        self.assertContains(response, f'<option value="{self.us05.pk}" selected>SafAle US-05</option>', html=True)
+
+        ec1118 = Yeast.objects.get(name='Lalvin EC-1118')
+        self.client.post(f'/recipe/{recipe.pk}/edit/', self.post_data(yeast=ec1118.pk, yeast_amount='1.5'))
+        recipe.refresh_from_db()
+        self.assertEqual((recipe.yeast, recipe.yeast_amount), (ec1118, Decimal('1.5')))
+
+        self.client.post(f'/recipe/{recipe.pk}/edit/', self.post_data(yeast='', yeast_amount=''))
+        recipe.refresh_from_db()
+        self.assertEqual((recipe.yeast, recipe.yeast_amount), (None, None))
