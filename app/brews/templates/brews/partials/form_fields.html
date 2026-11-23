@@ -1,4 +1,5 @@
-{% for field in form %}
+{# Pass `fields` to render a subset of the form's fields; defaults to all of them. #}
+{% for field in fields|default:form %}
     <div class="mb-3">
         <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
         {{ field }}

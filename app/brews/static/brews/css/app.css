@@ -608,6 +608,11 @@ h1, h2, h3, h4, h5 {
     color: #f87171;
 }
 
+/* Yeast | Packets / vials */
+.ingredient-fields-yeast {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+}
+
 /* On phones, stack each row: ingredient + remove button on the first line,
    then the details underneath */
 @media (max-width: 640px) {
@@ -628,7 +633,7 @@ h1, h2, h3, h4, h5 {
         grid-column: span 2;
     }
 
-    .ingredient-fields > :first-child {
+    .ingredient-fields:not(.ingredient-fields-yeast) > :first-child {
         grid-column: 1 / -2;
         grid-row: 1;
     }

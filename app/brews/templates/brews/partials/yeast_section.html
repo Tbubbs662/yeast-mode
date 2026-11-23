@@ -1,0 +1,24 @@
+{# Yeast and pitch amount, styled like the ingredient formset sections. #}
+<section class="ingredient-section">
+    <div class="ingredient-section-header">
+        <h2 class="section-title mb-0">Yeast</h2>
+        <span class="form-text">Includes wine and mead strains for meads and ciders.</span>
+    </div>
+    <div class="ingredient-fields ingredient-fields-yeast ingredient-header" aria-hidden="true">
+        {% for field in form.yeast_fields %}<span>{{ field.label }}</span>{% endfor %}
+    </div>
+    <div class="ingredient-row">
+        <div class="ingredient-fields ingredient-fields-yeast">
+            {% for field in form.yeast_fields %}
+                <div class="field-{{ field.name }}">{{ field }}</div>
+            {% endfor %}
+        </div>
+        {% for field in form.yeast_fields %}
+            {% if field.errors %}
+                <div class="form-errors">
+                    <ul>{% for error in field.errors %}<li>{{ field.label }}: {{ error }}</li>{% endfor %}</ul>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</section>
