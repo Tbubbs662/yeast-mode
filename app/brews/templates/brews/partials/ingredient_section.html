@@ -1,0 +1,30 @@
+{# One ingredient formset section. Expects `section` from recipe_form_view. #}
+{% with formset=section.formset kind=section.kind %}
+<section class="ingredient-section" data-formset="{{ formset.prefix }}">
+    <div class="ingredient-section-header">
+        <h2 class="section-title mb-0">{{ section.title }}</h2>
+        {% if section.help %}<span class="form-text">{{ section.help }}</span>{% endif %}
+    </div>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}
+        <div class="form-errors">{{ formset.non_form_errors }}</div>
+    {% endif %}
+    <div class="ingredient-fields ingredient-fields-{{ kind }} ingredient-header" aria-hidden="true">
+        {% for field in formset.empty_form.visible_fields %}
+            {% if field.name != 'DELETE' %}<span>{{ field.label }}</span>{% endif %}
+        {% endfor %}
+        <span></span>
+    </div>
+    <div data-formset-rows>
+        {% for form in formset %}
+            {% include "brews/partials/ingredient_row.html" %}
+        {% endfor %}
+    </div>
+    <template data-formset-empty>
+        {% include "brews/partials/ingredient_row.html" with form=formset.empty_form %}
+    </template>
+    <button type="button" class="btn btn-ghost btn-sm mt-2" data-formset-add>
+        <i class="bi bi-plus-lg"></i>{{ section.add_label }}
+    </button>
+</section>
+{% endwith %}

@@ -560,9 +560,19 @@ h1, h2, h3, h4, h5 {
     align-items: center;
 }
 
+/* Grain | Amount | Unit | Remove */
+.ingredient-fields-grains {
+    grid-template-columns: minmax(0, 3.2fr) minmax(0, 1fr) minmax(0, 0.8fr) auto;
+}
+
 /* Hop | Amount | Unit | Use | Time | Remove */
-.ingredient-fields-hop {
+.ingredient-fields-hops {
     grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+}
+
+/* Adjunct | Amount | Unit | Added | Remove */
+.ingredient-fields-adjuncts {
+    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 2fr) auto;
 }
 
 .ingredient-header {
@@ -598,23 +608,33 @@ h1, h2, h3, h4, h5 {
     color: #f87171;
 }
 
-/* On phones, stack each row: hop on its own line, then the details */
+/* On phones, stack each row: ingredient + remove button on the first line,
+   then the details underneath */
 @media (max-width: 640px) {
     .ingredient-header {
         display: none;
     }
 
-    .ingredient-fields-hop {
+    .ingredient-fields-grains {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    }
+
+    .ingredient-fields-hops,
+    .ingredient-fields-adjuncts {
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
-    .ingredient-fields-hop .field-hop {
-        grid-column: 1 / span 3;
+    .ingredient-fields-adjuncts .field-added_when {
+        grid-column: span 2;
+    }
+
+    .ingredient-fields > :first-child {
+        grid-column: 1 / -2;
         grid-row: 1;
     }
 
-    .ingredient-fields-hop .field-remove {
-        grid-column: 4;
+    .ingredient-fields .field-remove {
+        grid-column: -2;
         grid-row: 1;
         justify-self: end;
     }

@@ -198,25 +198,36 @@ class RecipeIngredientAmountTest(TestCase):
             self.assertContains(response, prefix)
 
 
-class RecipeHopFormViewTest(TestCase):
+class RecipeFormPostMixin:
+    """Builds POST data for the recipe form and its three ingredient formsets."""
+
+    def post_data(self, hops=(), initial=0, grains=(), adjuncts=(), grain_initial=0, adjunct_initial=0, **recipe_fields):
+        data = {
+            'name': 'Pale Ale', 'brew_type': 'beer', 'style': '', 'target_gravity': '',
+            'target_final_gravity': '', 'description': '', 'notes': '',
+        }
+        data.update(recipe_fields)
+        for prefix, rows, initial_forms in (
+            ('hops', hops, initial),
+            ('grains', grains, grain_initial),
+            ('adjuncts', adjuncts, adjunct_initial),
+        ):
+            data.update({
+                f'{prefix}-TOTAL_FORMS': str(len(rows)), f'{prefix}-INITIAL_FORMS': str(initial_forms),
+                f'{prefix}-MIN_NUM_FORMS': '0', f'{prefix}-MAX_NUM_FORMS': '1000',
+            })
+            for i, row in enumerate(rows):
+                for key, value in row.items():
+                    data[f'{prefix}-{i}-{key}'] = value
+        return data
+
+
+class RecipeHopFormViewTest(RecipeFormPostMixin, TestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username='brewer', password='brewer123')
         self.client.force_login(self.owner)
         self.cascade = Hop.objects.get(name='Cascade')
         self.citra = Hop.objects.get(name='Citra')
-
-    def post_data(self, hops, initial=0, **recipe_fields):
-        data = {
-            'name': 'Pale Ale', 'brew_type': 'beer', 'style': '', 'target_gravity': '',
-            'target_final_gravity': '', 'description': '', 'notes': '',
-            'hops-TOTAL_FORMS': str(len(hops)), 'hops-INITIAL_FORMS': str(initial),
-            'hops-MIN_NUM_FORMS': '0', 'hops-MAX_NUM_FORMS': '1000',
-        }
-        data.update(recipe_fields)
-        for i, hop in enumerate(hops):
-            for key, value in hop.items():
-                data[f'hops-{i}-{key}'] = value
-        return data
 
     def test_form_pages_render_hop_formset(self):
         recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner)
@@ -294,3 +305,89 @@ class RecipeHopFormViewTest(TestCase):
         self.assertEqual(their_hop.recipe, other_recipe)
         self.assertEqual(their_hop.hop, self.cascade)
         self.assertEqual(their_hop.amount, Decimal('1'))
+
+
+class RecipeGrainAdjunctFormViewTest(RecipeFormPostMixin, TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username='brewer', password='brewer123')
+        self.client.force_login(self.owner)
+        self.two_row = Grain.objects.get(name='2-Row Pale Malt')
+        self.crystal = Grain.objects.get(name='Crystal 40L')
+        self.honey = Adjunct.objects.get(name='Honey')
+        self.orange_peel = Adjunct.objects.get(name='Orange Peel')
+        self.cascade = Hop.objects.get(name='Cascade')
+
+    def test_form_renders_all_sections_in_brewing_order(self):
+        response = self.client.get('/recipe/new/')
+        html = response.content.decode()
+        for prefix in ('grains', 'hops', 'adjuncts'):
+            self.assertIn(f'name="{prefix}-TOTAL_FORMS"', html)
+        self.assertLess(html.index('data-formset="grains"'), html.index('data-formset="hops"'))
+        self.assertLess(html.index('data-formset="hops"'), html.index('data-formset="adjuncts"'))
+        self.assertContains(response, 'Add grain')
+        self.assertContains(response, 'Add adjunct')
+
+    def test_create_recipe_with_all_ingredient_types(self):
+        response = self.client.post('/recipe/new/', self.post_data(
+            grains=[
+                {'grain': self.two_row.pk, 'amount': '10', 'unit': 'lb'},
+                {'grain': self.crystal.pk, 'amount': '8', 'unit': 'oz'},
+            ],
+            hops=[{'hop': self.cascade.pk, 'amount': '1', 'unit': 'oz', 'use': 'boil', 'time': '60'}],
+            adjuncts=[{'adjunct': self.honey.pk, 'amount': '2', 'unit': 'lb', 'added_when': 'secondary'}],
+        ))
+        recipe = Recipe.objects.get(name='Pale Ale')
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertEqual([str(g) for g in recipe.grain_bill.all()], ['10 lb 2-Row Pale Malt', '8 oz Crystal 40L'])
+        self.assertEqual([str(h) for h in recipe.hop_additions.all()], ['1 oz Cascade (Boil, 60 min)'])
+        self.assertEqual([str(a) for a in recipe.adjunct_additions.all()], ['2 lb Honey (Secondary)'])
+
+    def test_blank_extra_rows_are_ignored(self):
+        response = self.client.post('/recipe/new/', self.post_data(
+            grains=[{'grain': '', 'amount': '', 'unit': 'lb'}],
+            adjuncts=[{'adjunct': '', 'amount': '', 'unit': 'lb', 'added_when': 'boil'}],
+        ))
+        recipe = Recipe.objects.get(name='Pale Ale')
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertEqual(recipe.grain_bill.count(), 0)
+        self.assertEqual(recipe.adjunct_additions.count(), 0)
+
+    def test_invalid_row_in_any_section_saves_nothing(self):
+        response = self.client.post('/recipe/new/', self.post_data(
+            grains=[{'grain': self.two_row.pk, 'amount': '10', 'unit': 'lb'}],
+            hops=[{'hop': self.cascade.pk, 'amount': '1', 'unit': 'oz', 'use': 'boil', 'time': '60'}],
+            adjuncts=[{'adjunct': self.honey.pk, 'amount': '', 'unit': 'lb', 'added_when': 'boil'}],
+        ))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Amount: This field is required.')
+        self.assertFalse(Recipe.objects.exists())
+        self.assertFalse(RecipeGrain.objects.exists())
+        self.assertFalse(RecipeHop.objects.exists())
+
+    def test_errors_show_in_every_invalid_section(self):
+        response = self.client.post('/recipe/new/', self.post_data(
+            grains=[{'grain': self.two_row.pk, 'amount': '0', 'unit': 'lb'}],
+            adjuncts=[{'adjunct': self.honey.pk, 'amount': '', 'unit': 'lb', 'added_when': 'boil'}],
+        ))
+        self.assertContains(response, 'Amount: Ensure this value is greater than or equal to 0.01.')
+        self.assertContains(response, 'Amount: This field is required.')
+
+    def test_edit_updates_adds_and_removes_grains_and_adjuncts(self):
+        recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner)
+        grain = RecipeGrain.objects.create(recipe=recipe, grain=self.two_row, amount=Decimal('10'))
+        adjunct = RecipeAdjunct.objects.create(recipe=recipe, adjunct=self.honey, amount=Decimal('1'))
+        response = self.client.post(f'/recipe/{recipe.pk}/edit/', self.post_data(
+            grains=[
+                {'id': grain.pk, 'grain': self.two_row.pk, 'amount': '11', 'unit': 'lb'},
+                {'grain': self.crystal.pk, 'amount': '1', 'unit': 'lb'},
+            ],
+            grain_initial=1,
+            adjuncts=[
+                {'id': adjunct.pk, 'adjunct': self.honey.pk, 'amount': '1', 'unit': 'lb', 'added_when': 'boil', 'DELETE': 'on'},
+                {'adjunct': self.orange_peel.pk, 'amount': '1', 'unit': 'oz', 'added_when': 'boil'},
+            ],
+            adjunct_initial=1,
+        ))
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertEqual([str(g) for g in recipe.grain_bill.all()], ['11 lb 2-Row Pale Malt', '1 lb Crystal 40L'])
+        self.assertEqual([str(a) for a in recipe.adjunct_additions.all()], ['1 oz Orange Peel (Boil)'])
