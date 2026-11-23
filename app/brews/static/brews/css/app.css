@@ -523,3 +523,99 @@ h1, h2, h3, h4, h5 {
 .stat-grid-compact .stat-value {
     font-size: 1.05rem;
 }
+
+/* --------------------------------------------------------------------------
+   Ingredient formsets (recipe form)
+   -------------------------------------------------------------------------- */
+.form-card-wide {
+    max-width: 860px;
+}
+
+.ingredient-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--ym-border);
+}
+
+.ingredient-section-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.ingredient-row {
+    padding: 0.5rem 0;
+}
+
+.ingredient-row + .ingredient-row {
+    border-top: 1px dashed var(--ym-border);
+}
+
+.ingredient-fields {
+    display: grid;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Hop | Amount | Unit | Use | Time | Remove */
+.ingredient-fields-hop {
+    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+}
+
+.ingredient-header {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ym-muted);
+}
+
+.ingredient-row .form-control,
+.ingredient-row .form-select {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+    font-size: 0.9rem;
+}
+
+.ingredient-row .form-select {
+    padding-left: 0.6rem;
+    padding-right: 2rem;
+}
+
+.ingredient-row .form-control {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
+}
+
+.btn-icon {
+    padding: 0.45rem 0.6rem;
+}
+
+.btn-icon:hover {
+    color: #f87171;
+}
+
+/* On phones, stack each row: hop on its own line, then the details */
+@media (max-width: 640px) {
+    .ingredient-header {
+        display: none;
+    }
+
+    .ingredient-fields-hop {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .ingredient-fields-hop .field-hop {
+        grid-column: 1 / span 3;
+        grid-row: 1;
+    }
+
+    .ingredient-fields-hop .field-remove {
+        grid-column: 4;
+        grid-row: 1;
+        justify-self: end;
+    }
+}

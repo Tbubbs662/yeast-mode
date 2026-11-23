@@ -1,7 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect # type: ignore
 from django.contrib import messages # type: ignore
+from django.db import transaction # type: ignore
 from .models import Recipe, BrewSession
-from .forms import RecipeForm, BrewSessionForm
+from .forms import RecipeForm, RecipeHopFormSet, BrewSessionForm
 from django.contrib.auth.forms import UserCreationForm # type: ignore
 from django.contrib.auth import login # type: ignore
 from django.contrib.auth.decorators import login_required # type: ignore
@@ -31,32 +32,41 @@ def recipe_detail(request, pk):
     recipe = get_object_or_404(Recipe, pk=pk, owner=request.user)
     return render(request, 'brews/recipe_detail.html', {'recipe': recipe})
 
-@login_required
-def recipe_create(request):
+def recipe_form_view(request, recipe, title, success_message):
+    """Shared create/edit handling for a recipe and its hop additions."""
     if request.method == 'POST':
-        form = RecipeForm(request.POST)
-        if form.is_valid():
-            recipe = form.save(commit=False)
-            recipe.owner = request.user
-            recipe.save()
-            messages.success(request, f'Recipe "{recipe.name}" created successfully!')
+        form = RecipeForm(request.POST, instance=recipe)
+        hop_formset = RecipeHopFormSet(request.POST, instance=recipe, prefix='hops')
+        if form.is_valid() and hop_formset.is_valid():
+            with transaction.atomic():
+                recipe = form.save()
+                hop_formset.instance = recipe
+                hop_formset.save()
+            messages.success(request, success_message.format(name=recipe.name))
             return redirect('recipe_detail', pk=recipe.pk)
     else:
-        form = RecipeForm()
-    return render(request, 'brews/recipe_form.html', {'form': form, 'title': 'New Recipe'})
+        form = RecipeForm(instance=recipe)
+        hop_formset = RecipeHopFormSet(instance=recipe, prefix='hops')
+    return render(request, 'brews/recipe_form.html', {
+        'form': form,
+        'hop_formset': hop_formset,
+        'title': title,
+    })
+
+@login_required
+def recipe_create(request):
+    return recipe_form_view(
+        request, Recipe(owner=request.user), 'New Recipe',
+        'Recipe "{name}" created successfully!',
+    )
 
 @login_required
 def recipe_edit(request, recipe_pk):
     recipe = get_object_or_404(Recipe, pk=recipe_pk, owner=request.user)
-    if request.method == 'POST':
-        form = RecipeForm(request.POST, instance=recipe)
-        if form.is_valid():
-            recipe = form.save()
-            messages.success(request, f'Recipe "{recipe.name}" has been updated successfully!')
-            return redirect('recipe_detail', pk=recipe.pk)
-    else:
-        form = RecipeForm(instance=recipe)
-    return render(request, 'brews/recipe_form.html', {'form': form, 'title': recipe.name})
+    return recipe_form_view(
+        request, recipe, recipe.name,
+        'Recipe "{name}" has been updated successfully!',
+    )
 
 @login_required
 def recipe_delete(request,recipe_pk):

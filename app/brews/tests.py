@@ -196,3 +196,101 @@ class RecipeIngredientAmountTest(TestCase):
         self.assertEqual(response.status_code, 200)
         for prefix in ('grain_bill', 'hop_additions', 'adjunct_additions', 'yeast_amount'):
             self.assertContains(response, prefix)
+
+
+class RecipeHopFormViewTest(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username='brewer', password='brewer123')
+        self.client.force_login(self.owner)
+        self.cascade = Hop.objects.get(name='Cascade')
+        self.citra = Hop.objects.get(name='Citra')
+
+    def post_data(self, hops, initial=0, **recipe_fields):
+        data = {
+            'name': 'Pale Ale', 'brew_type': 'beer', 'style': '', 'target_gravity': '',
+            'target_final_gravity': '', 'description': '', 'notes': '',
+            'hops-TOTAL_FORMS': str(len(hops)), 'hops-INITIAL_FORMS': str(initial),
+            'hops-MIN_NUM_FORMS': '0', 'hops-MAX_NUM_FORMS': '1000',
+        }
+        data.update(recipe_fields)
+        for i, hop in enumerate(hops):
+            for key, value in hop.items():
+                data[f'hops-{i}-{key}'] = value
+        return data
+
+    def test_form_pages_render_hop_formset(self):
+        recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner)
+        for url in ('/recipe/new/', f'/recipe/{recipe.pk}/edit/'):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertContains(response, 'name="hops-TOTAL_FORMS"')
+                self.assertContains(response, 'data-formset-empty')
+                self.assertContains(response, 'Cascade')
+
+    def test_session_form_has_no_hop_section(self):
+        recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner)
+        response = self.client.get(f'/recipe/{recipe.pk}/session/new/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'hops-TOTAL_FORMS')
+
+    def test_create_recipe_with_hops(self):
+        response = self.client.post('/recipe/new/', self.post_data([
+            {'hop': self.cascade.pk, 'amount': '1', 'unit': 'oz', 'use': 'boil', 'time': '60'},
+            {'hop': self.citra.pk, 'amount': '2', 'unit': 'oz', 'use': 'dry_hop', 'time': '3'},
+        ]))
+        recipe = Recipe.objects.get(name='Pale Ale')
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertEqual(recipe.owner, self.owner)
+        self.assertEqual(
+            [str(h) for h in recipe.hop_additions.all()],
+            ['1 oz Cascade (Boil, 60 min)', '2 oz Citra (Dry hop, 3 days)'],
+        )
+
+    def test_blank_extra_row_is_ignored(self):
+        response = self.client.post('/recipe/new/', self.post_data([
+            {'hop': '', 'amount': '', 'unit': 'oz', 'use': 'boil', 'time': ''},
+        ]))
+        recipe = Recipe.objects.get(name='Pale Ale')
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertEqual(recipe.hop_additions.count(), 0)
+
+    def test_invalid_hop_row_saves_nothing(self):
+        response = self.client.post('/recipe/new/', self.post_data([
+            {'hop': self.cascade.pk, 'amount': '1', 'unit': 'oz', 'use': 'boil', 'time': '60'},
+            {'hop': self.citra.pk, 'amount': '0', 'unit': 'oz', 'use': 'boil', 'time': ''},
+        ]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Amount: Ensure this value is greater than or equal to 0.01.')
+        self.assertFalse(Recipe.objects.exists())
+        self.assertFalse(RecipeHop.objects.exists())
+
+    def test_edit_updates_adds_and_removes_hops(self):
+        recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner)
+        keep = RecipeHop.objects.create(recipe=recipe, hop=self.cascade, amount=Decimal('1'), time=60)
+        remove = RecipeHop.objects.create(recipe=recipe, hop=self.citra, amount=Decimal('1'), time=10)
+        response = self.client.post(f'/recipe/{recipe.pk}/edit/', self.post_data([
+            {'id': keep.pk, 'hop': self.cascade.pk, 'amount': '1.5', 'unit': 'oz', 'use': 'boil', 'time': '45'},
+            {'id': remove.pk, 'hop': self.citra.pk, 'amount': '1', 'unit': 'oz', 'use': 'boil', 'time': '10', 'DELETE': 'on'},
+            {'hop': self.citra.pk, 'amount': '28', 'unit': 'g', 'use': 'whirlpool', 'time': ''},
+        ], initial=2))
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertEqual(
+            [str(h) for h in recipe.hop_additions.all()],
+            ['1.5 oz Cascade (Boil, 45 min)', '28 g Citra (Whirlpool)'],
+        )
+
+    def test_cannot_edit_another_recipes_hop_row(self):
+        other_owner = User.objects.create_user(username='other', password='other123')
+        other_recipe = Recipe.objects.create(name='Theirs', owner=other_owner)
+        their_hop = RecipeHop.objects.create(recipe=other_recipe, hop=self.cascade, amount=Decimal('1'))
+        recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner)
+        response = self.client.post(f'/recipe/{recipe.pk}/edit/', self.post_data([
+            {'id': their_hop.pk, 'hop': self.citra.pk, 'amount': '5', 'unit': 'oz', 'use': 'boil', 'time': ''},
+        ], initial=1))
+        # Django ignores rows whose id isn't part of this recipe.
+        self.assertRedirects(response, f'/recipe/{recipe.pk}/')
+        self.assertEqual(recipe.hop_additions.count(), 0)
+        their_hop.refresh_from_db()
+        self.assertEqual(their_hop.recipe, other_recipe)
+        self.assertEqual(their_hop.hop, self.cascade)
+        self.assertEqual(their_hop.amount, Decimal('1'))

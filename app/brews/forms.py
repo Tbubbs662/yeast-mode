@@ -1,5 +1,5 @@
 from django import forms # type: ignore
-from .models import Recipe, BrewSession
+from .models import Recipe, BrewSession, RecipeHop
 
 
 class RecipeForm(forms.ModelForm):
@@ -15,6 +15,27 @@ class RecipeForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
+
+
+class RecipeHopForm(forms.ModelForm):
+    class Meta:
+        model = RecipeHop
+        fields = ['hop', 'amount', 'unit', 'use', 'time']
+        widgets = {
+            'hop': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Hop'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0.01', 'placeholder': 'Amount', 'aria-label': 'Amount'}),
+            'unit': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Unit'}),
+            'use': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Use', 'data-hop-use': ''}),
+            'time': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'min', 'aria-label': 'Time', 'data-hop-time': ''}),
+        }
+
+
+RecipeHopFormSet = forms.inlineformset_factory(
+    Recipe, RecipeHop,
+    form=RecipeHopForm,
+    extra=1,
+    can_delete=True,
+)
 
 
 class BrewSessionForm(forms.ModelForm):
