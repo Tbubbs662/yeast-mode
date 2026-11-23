@@ -75,6 +75,14 @@ class Recipe(models.Model):
     )
 
     @property
+    def yeast_quantity(self):
+        """e.g. '1 pack' or '1.5 packs'; empty when no amount is set."""
+        if self.yeast_amount is None:
+            return ''
+        amount = format_amount(self.yeast_amount)
+        return f"{amount} pack" if self.yeast_amount == 1 else f"{amount} packs"
+
+    @property
     def abv(self):
         if self.target_gravity and self.target_final_gravity:
             return round((float(self.target_gravity) - float(self.target_final_gravity)) * 131.25, 2)
@@ -88,6 +96,17 @@ def format_amount(amount):
     return f"{amount.normalize():f}"
 
 
+class LineItemQuantityMixin:
+    """Formatted amount + unit for recipe line items, e.g. '1.5 oz'."""
+
+    @property
+    def quantity(self):
+        amount = format_amount(self.amount)
+        if self.unit == 'each':
+            return amount
+        return f"{amount} {self.get_unit_display()}"
+
+
 def positive_amount_field():
     return models.DecimalField(
         max_digits=7, decimal_places=2,
@@ -95,7 +114,7 @@ def positive_amount_field():
     )
 
 
-class RecipeHop(models.Model):
+class RecipeHop(LineItemQuantityMixin, models.Model):
     OZ, G = 'oz', 'g'
     UNIT_CHOICES = [(OZ, 'oz'), (G, 'g')]
 
@@ -119,14 +138,25 @@ class RecipeHop(models.Model):
     def time_unit(self):
         return 'days' if self.use == self.DRY_HOP else 'min'
 
-    def __str__(self):
-        text = f"{format_amount(self.amount)} {self.unit} {self.hop} ({self.get_use_display()}"
+    @property
+    def schedule(self):
+        """e.g. 'Boil, 60 min', 'Dry hop, 3 days' or 'Whirlpool'."""
+        text = self.get_use_display()
         if self.time is not None:
             text += f", {self.time} {self.time_unit}"
-        return text + ")"
+        return text
+
+    def schedule_key(self):
+        """Sort key for a hop schedule: boil, then whirlpool, then dry hop;
+        longest time first within each (60 min before 15 min)."""
+        use_order = [use for use, _ in self.USE_CHOICES]
+        return (use_order.index(self.use), -(self.time or 0), self.pk or 0)
+
+    def __str__(self):
+        return f"{self.quantity} {self.hop} ({self.schedule})"
 
 
-class RecipeGrain(models.Model):
+class RecipeGrain(LineItemQuantityMixin, models.Model):
     LB, OZ, KG, G = 'lb', 'oz', 'kg', 'g'
     UNIT_CHOICES = [(LB, 'lb'), (OZ, 'oz'), (KG, 'kg'), (G, 'g')]
 
@@ -139,10 +169,10 @@ class RecipeGrain(models.Model):
         ordering = ['pk']
 
     def __str__(self):
-        return f"{format_amount(self.amount)} {self.unit} {self.grain}"
+        return f"{self.quantity} {self.grain}"
 
 
-class RecipeAdjunct(models.Model):
+class RecipeAdjunct(LineItemQuantityMixin, models.Model):
     UNIT_CHOICES = [
         ('lb', 'lb'), ('oz', 'oz'), ('kg', 'kg'), ('g', 'g'),
         ('gal', 'gal'), ('l', 'L'), ('tsp', 'tsp'), ('tbsp', 'tbsp'),
@@ -165,7 +195,7 @@ class RecipeAdjunct(models.Model):
         ordering = ['pk']
 
     def __str__(self):
-        return f"{format_amount(self.amount)} {self.unit} {self.adjunct} ({self.get_added_when_display()})"
+        return f"{self.quantity} {self.adjunct} ({self.get_added_when_display()})"
 
 
 class BrewSession(models.Model):

@@ -644,3 +644,65 @@ h1, h2, h3, h4, h5 {
         justify-self: end;
     }
 }
+
+/* --------------------------------------------------------------------------
+   Ingredient lists (recipe detail)
+   -------------------------------------------------------------------------- */
+.ingredient-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ym-muted);
+    margin-bottom: 0.75rem;
+}
+
+.ingredient-card-title .bi {
+    color: var(--ym-accent);
+    font-size: 0.95rem;
+}
+
+.ingredient-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ingredient-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.75rem;
+    padding: 0.5rem 0;
+}
+
+.ingredient-list li + li {
+    border-top: 1px solid var(--ym-border);
+}
+
+.ingredient-list .qty {
+    flex: 0 0 4.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ym-accent);
+}
+
+.ingredient-list .name {
+    flex: 1 1 8rem;
+    min-width: 0;
+}
+
+.ingredient-list .meta {
+    font-size: 0.85rem;
+    color: var(--ym-muted);
+    white-space: nowrap;
+}
+
+.ingredient-empty {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--ym-muted);
+}
