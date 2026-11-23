@@ -1,5 +1,9 @@
 from django.test import TestCase # type: ignore
-from brews.models import Recipe, BrewSession # type: ignore
+import importlib
+
+from django.apps import apps as django_apps # type: ignore
+from django.db import IntegrityError, transaction # type: ignore
+from brews.models import Adjunct, BrewSession, Grain, Hop, Recipe, Yeast # type: ignore
 from django.contrib.auth.models import User # type: ignore
 
 
@@ -63,3 +67,48 @@ class RecipeViewTest(TestCase):
 
         response = self.client.get(f'/recipe/{self.recipe.pk}/')
         self.assertEqual(response.status_code, 404)
+
+class IngredientSeedTest(TestCase):
+    """The 0006_seed_ingredients migration runs when the test DB is built."""
+
+    def setUp(self):
+        self.migration = importlib.import_module('brews.migrations.0006_seed_ingredients')
+        self.tables = [
+            (Grain, self.migration.GRAINS),
+            (Hop, self.migration.HOPS),
+            (Yeast, self.migration.YEASTS),
+            (Adjunct, self.migration.ADJUNCTS),
+        ]
+
+    def test_seed_populates_all_tables(self):
+        for model, items in self.tables:
+            with self.subTest(model=model.__name__):
+                names = set(model.objects.values_list('name', flat=True))
+                self.assertTrue(items)
+                self.assertTrue({name for name, _ in items} <= names)
+
+    def test_includes_mead_and_cider_ingredients(self):
+        self.assertTrue(Yeast.objects.filter(name='Lalvin EC-1118').exists())
+        self.assertTrue(Adjunct.objects.filter(name='Honey').exists())
+        self.assertTrue(Adjunct.objects.filter(name='Apple Juice').exists())
+
+    def test_seed_is_idempotent(self):
+        before = [model.objects.count() for model, _ in self.tables]
+        self.migration.seed_ingredients(django_apps, None)
+        after = [model.objects.count() for model, _ in self.tables]
+        self.assertEqual(before, after)
+
+    def test_seed_keeps_existing_descriptions(self):
+        Hop.objects.filter(name='Cascade').update(description='My notes')
+        self.migration.seed_ingredients(django_apps, None)
+        self.assertEqual(Hop.objects.get(name='Cascade').description, 'My notes')
+
+    def test_ingredient_names_are_unique(self):
+        for model, items in self.tables:
+            with self.subTest(model=model.__name__):
+                with self.assertRaises(IntegrityError), transaction.atomic():
+                    model.objects.create(name=items[0][0])
+
+    def test_ingredients_ordered_by_name(self):
+        names = list(Hop.objects.values_list('name', flat=True))
+        self.assertEqual(names, sorted(names))
