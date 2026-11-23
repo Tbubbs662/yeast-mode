@@ -26,6 +26,64 @@
     <div class="stat"><span class="stat-label">Batches</span><span class="stat-value">{{ recipe.sessions.count }}</span></div>
 </div>
 
+<h2 class="section-title">Ingredients</h2>
+<div class="row g-3 mb-5">
+    <div class="col-lg-6">
+        <div class="card h-100"><div class="card-body">
+            <h3 class="ingredient-card-title"><i class="bi bi-basket"></i>Grain bill</h3>
+            {% if recipe.grain_bill.all %}
+                <ul class="ingredient-list">
+                    {% for item in recipe.grain_bill.all %}
+                        <li><span class="qty">{{ item.quantity }}</span> <span class="name">{{ item.grain }}</span></li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="ingredient-empty">No grains added yet.</p>
+            {% endif %}
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100"><div class="card-body">
+            <h3 class="ingredient-card-title"><i class="bi bi-flower1"></i>Hop schedule</h3>
+            {% if hop_schedule %}
+                <ul class="ingredient-list">
+                    {% for item in hop_schedule %}
+                        <li><span class="qty">{{ item.quantity }}</span> <span class="name">{{ item.hop }}</span> <span class="meta">{{ item.schedule }}</span></li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="ingredient-empty">No hops added yet.</p>
+            {% endif %}
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100"><div class="card-body">
+            <h3 class="ingredient-card-title"><i class="bi bi-stars"></i>Adjuncts</h3>
+            {% if recipe.adjunct_additions.all %}
+                <ul class="ingredient-list">
+                    {% for item in recipe.adjunct_additions.all %}
+                        <li><span class="qty">{{ item.quantity }}</span> <span class="name">{{ item.adjunct }}</span> <span class="meta">{{ item.get_added_when_display }}</span></li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="ingredient-empty">No adjuncts added yet.</p>
+            {% endif %}
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100"><div class="card-body">
+            <h3 class="ingredient-card-title"><i class="bi bi-droplet-half"></i>Yeast</h3>
+            {% if recipe.yeast %}
+                <ul class="ingredient-list">
+                    <li><span class="qty">{{ recipe.yeast_quantity|default:"—" }}</span> <span class="name">{{ recipe.yeast }}</span></li>
+                </ul>
+            {% else %}
+                <p class="ingredient-empty">No yeast chosen yet.</p>
+            {% endif %}
+        </div></div>
+    </div>
+</div>
+
 {% if recipe.description or recipe.notes %}
 <div class="row g-3 mb-5">
     {% if recipe.description %}

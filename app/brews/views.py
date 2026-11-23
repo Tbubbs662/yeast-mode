@@ -1,7 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect # type: ignore
 from django.contrib import messages # type: ignore
 from django.db import transaction # type: ignore
-from .models import Recipe, BrewSession
+from django.db.models import Prefetch # type: ignore
+from .models import BrewSession, Recipe, RecipeAdjunct, RecipeGrain, RecipeHop
 from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeHopFormSet, BrewSessionForm
 from django.contrib.auth.forms import UserCreationForm # type: ignore
 from django.contrib.auth import login # type: ignore
@@ -29,8 +30,18 @@ def recipe_list(request):
 
 @login_required
 def recipe_detail(request, pk):
-    recipe = get_object_or_404(Recipe, pk=pk, owner=request.user)
-    return render(request, 'brews/recipe_detail.html', {'recipe': recipe})
+    # Load every ingredient up front so the page runs a fixed number of
+    # queries however many line items the recipe has.
+    recipes = Recipe.objects.select_related('yeast').prefetch_related(
+        Prefetch('grain_bill', queryset=RecipeGrain.objects.select_related('grain')),
+        Prefetch('hop_additions', queryset=RecipeHop.objects.select_related('hop')),
+        Prefetch('adjunct_additions', queryset=RecipeAdjunct.objects.select_related('adjunct')),
+    )
+    recipe = get_object_or_404(recipes, pk=pk, owner=request.user)
+    return render(request, 'brews/recipe_detail.html', {
+        'recipe': recipe,
+        'hop_schedule': sorted(recipe.hop_additions.all(), key=RecipeHop.schedule_key),
+    })
 
 # Ingredient sections on the recipe form, in brewing order:
 # (formset prefix, formset class, heading, add-button label, help text)

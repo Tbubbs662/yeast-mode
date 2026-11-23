@@ -5,7 +5,8 @@ from django.apps import apps as django_apps # type: ignore
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError # type: ignore
-from django.db import IntegrityError, transaction # type: ignore
+from django.db import IntegrityError, connection, transaction # type: ignore
+from django.test.utils import CaptureQueriesContext # type: ignore
 from django.db.models import ProtectedError # type: ignore
 from brews.models import ( # type: ignore
     Adjunct, BrewSession, Grain, Hop, Recipe, RecipeAdjunct, RecipeGrain, RecipeHop, Yeast,
@@ -445,3 +446,76 @@ class RecipeYeastFormViewTest(RecipeFormPostMixin, TestCase):
         self.client.post(f'/recipe/{recipe.pk}/edit/', self.post_data(yeast='', yeast_amount=''))
         recipe.refresh_from_db()
         self.assertEqual((recipe.yeast, recipe.yeast_amount), (None, None))
+
+
+class RecipeDetailIngredientsTest(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username='brewer', password='brewer123')
+        self.client.force_login(self.owner)
+        self.recipe = Recipe.objects.create(name='Pale Ale', owner=self.owner)
+        self.url = f'/recipe/{self.recipe.pk}/'
+
+    def add_ingredients(self, count):
+        hops = list(Hop.objects.all()[:count])
+        grains = list(Grain.objects.all()[:count])
+        adjuncts = list(Adjunct.objects.all()[:count])
+        for hop, grain, adjunct in zip(hops, grains, adjuncts):
+            RecipeHop.objects.create(recipe=self.recipe, hop=hop, amount=Decimal('1'), time=30)
+            RecipeGrain.objects.create(recipe=self.recipe, grain=grain, amount=Decimal('5'))
+            RecipeAdjunct.objects.create(recipe=self.recipe, adjunct=adjunct, amount=Decimal('1'))
+
+    def test_shows_all_ingredients(self):
+        RecipeGrain.objects.create(recipe=self.recipe, grain=Grain.objects.get(name='2-Row Pale Malt'), amount=Decimal('10'))
+        RecipeHop.objects.create(recipe=self.recipe, hop=Hop.objects.get(name='Cascade'), amount=Decimal('1.5'), time=60)
+        RecipeAdjunct.objects.create(recipe=self.recipe, adjunct=Adjunct.objects.get(name='Honey'), amount=Decimal('2'), added_when=RecipeAdjunct.SECONDARY)
+        self.recipe.yeast = Yeast.objects.get(name='SafAle US-05')
+        self.recipe.yeast_amount = Decimal('1')
+        self.recipe.save()
+
+        response = self.client.get(self.url)
+        self.assertContains(response, '<span class="qty">10 lb</span><span class="name">2-Row Pale Malt</span>', html=True)
+        self.assertContains(response, '<span class="qty">1.5 oz</span><span class="name">Cascade</span><span class="meta">Boil, 60 min</span>', html=True)
+        self.assertContains(response, '<span class="qty">2 lb</span><span class="name">Honey</span><span class="meta">Secondary</span>', html=True)
+        self.assertContains(response, '<span class="qty">1 pack</span><span class="name">SafAle US-05</span>', html=True)
+        self.assertNotContains(response, 'added yet')
+        self.assertNotContains(response, 'No yeast chosen yet.')
+
+    def test_empty_sections_show_placeholders(self):
+        response = self.client.get(self.url)
+        for text in ('No grains added yet.', 'No hops added yet.', 'No adjuncts added yet.', 'No yeast chosen yet.'):
+            self.assertContains(response, text)
+
+    def test_hop_schedule_order(self):
+        cascade = Hop.objects.get(name='Cascade')
+        for use, time in ((RecipeHop.DRY_HOP, 3), (RecipeHop.BOIL, 15), (RecipeHop.WHIRLPOOL, None), (RecipeHop.BOIL, 60), (RecipeHop.BOIL, None)):
+            RecipeHop.objects.create(recipe=self.recipe, hop=cascade, amount=Decimal('1'), use=use, time=time)
+        response = self.client.get(self.url)
+        self.assertEqual(
+            [hop.schedule for hop in response.context['hop_schedule']],
+            ['Boil, 60 min', 'Boil, 15 min', 'Boil', 'Whirlpool', 'Dry hop, 3 days'],
+        )
+
+    def test_quantity_formatting(self):
+        vanilla = RecipeAdjunct(recipe=self.recipe, adjunct=Adjunct.objects.get(name='Vanilla Bean'), amount=Decimal('2.00'), unit='each')
+        juice = RecipeAdjunct(recipe=self.recipe, adjunct=Adjunct.objects.get(name='Apple Juice'), amount=Decimal('5'), unit='l')
+        self.assertEqual(vanilla.quantity, '2')
+        self.assertEqual(juice.quantity, '5 L')
+        self.recipe.yeast_amount = Decimal('1.50')
+        self.assertEqual(self.recipe.yeast_quantity, '1.5 packs')
+        self.recipe.yeast_amount = None
+        self.assertEqual(self.recipe.yeast_quantity, '')
+
+    def test_yeast_without_amount(self):
+        self.recipe.yeast = Yeast.objects.get(name='Lalvin 71B')
+        self.recipe.save()
+        response = self.client.get(self.url)
+        self.assertContains(response, '<span class="qty">—</span><span class="name">Lalvin 71B</span>', html=True)
+
+    def test_query_count_does_not_grow_with_ingredients(self):
+        self.add_ingredients(1)
+        with CaptureQueriesContext(connection) as one_each:
+            self.client.get(self.url)
+        self.add_ingredients(3)
+        with CaptureQueriesContext(connection) as four_each:
+            self.client.get(self.url)
+        self.assertEqual(len(one_each), len(four_each))
