@@ -1,14 +1,43 @@
 {% extends "brews/base.html" %}
+{% load static %}
 
 {% block title %}YeastMode - {{ title }}{% endblock %}
 
 {% block content %}
-<div class="card form-card">
+<div class="card form-card{% if hop_formset %} form-card-wide{% endif %}">
     <div class="card-body p-4 p-md-5">
         <h1 class="h3 mb-4">{{ title }}</h1>
         <form method="post">
             {% csrf_token %}
             {% include "brews/partials/form_fields.html" %}
+
+            {% if hop_formset %}
+                <section class="ingredient-section" data-formset="{{ hop_formset.prefix }}">
+                    <div class="ingredient-section-header">
+                        <h2 class="section-title mb-0">Hops</h2>
+                        <span class="form-text">Time is minutes for boil and whirlpool, days for dry hops.</span>
+                    </div>
+                    {{ hop_formset.management_form }}
+                    {% if hop_formset.non_form_errors %}
+                        <div class="form-errors">{{ hop_formset.non_form_errors }}</div>
+                    {% endif %}
+                    <div class="ingredient-fields ingredient-fields-hop ingredient-header" aria-hidden="true">
+                        <span>Hop</span><span>Amount</span><span>Unit</span><span>Use</span><span>Time</span><span></span>
+                    </div>
+                    <div data-formset-rows>
+                        {% for hop_form in hop_formset %}
+                            {% include "brews/partials/hop_row.html" with form=hop_form %}
+                        {% endfor %}
+                    </div>
+                    <template data-formset-empty>
+                        {% include "brews/partials/hop_row.html" with form=hop_formset.empty_form %}
+                    </template>
+                    <button type="button" class="btn btn-ghost btn-sm mt-2" data-formset-add>
+                        <i class="bi bi-plus-lg"></i>Add hop
+                    </button>
+                </section>
+            {% endif %}
+
             <div class="form-actions">
                 <a href="javascript:history.back()" class="btn btn-ghost">Cancel</a>
                 <button type="submit" class="btn btn-primary">Save</button>
@@ -16,4 +45,10 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+    {% if hop_formset %}
+        <script src="{% static 'brews/js/formsets.js' %}"></script>
+    {% endif %}
 {% endblock %}
