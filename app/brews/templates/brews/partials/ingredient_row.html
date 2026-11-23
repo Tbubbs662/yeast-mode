@@ -1,14 +1,15 @@
+{# One ingredient line item. Expects `form` and `kind` (grains / hops / adjuncts). #}
 <div class="ingredient-row{% if form.DELETE.value %} d-none{% endif %}" data-formset-row>
     {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
-    <div class="ingredient-fields ingredient-fields-hop">
-        <div class="field-hop">{{ form.hop }}</div>
-        <div class="field-amount">{{ form.amount }}</div>
-        <div class="field-unit">{{ form.unit }}</div>
-        <div class="field-use">{{ form.use }}</div>
-        <div class="field-time">{{ form.time }}</div>
+    <div class="ingredient-fields ingredient-fields-{{ kind }}">
+        {% for field in form.visible_fields %}
+            {% if field.name != 'DELETE' %}
+                <div class="field-{{ field.name }}">{{ field }}</div>
+            {% endif %}
+        {% endfor %}
         <div class="field-remove">
             <span class="d-none">{{ form.DELETE }}</span>
-            <button type="button" class="btn btn-ghost btn-icon" data-formset-remove aria-label="Remove hop">
+            <button type="button" class="btn btn-ghost btn-icon" data-formset-remove aria-label="Remove row">
                 <i class="bi bi-trash3"></i>
             </button>
         </div>

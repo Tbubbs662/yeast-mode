@@ -1,5 +1,5 @@
 from django import forms # type: ignore
-from .models import Recipe, BrewSession, RecipeHop
+from .models import Recipe, BrewSession, RecipeAdjunct, RecipeGrain, RecipeHop
 
 
 class RecipeForm(forms.ModelForm):
@@ -33,6 +33,46 @@ class RecipeHopForm(forms.ModelForm):
 RecipeHopFormSet = forms.inlineformset_factory(
     Recipe, RecipeHop,
     form=RecipeHopForm,
+    extra=1,
+    can_delete=True,
+)
+
+
+class RecipeGrainForm(forms.ModelForm):
+    class Meta:
+        model = RecipeGrain
+        fields = ['grain', 'amount', 'unit']
+        widgets = {
+            'grain': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Grain'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0.01', 'placeholder': 'Amount', 'aria-label': 'Amount'}),
+            'unit': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Unit'}),
+        }
+
+
+RecipeGrainFormSet = forms.inlineformset_factory(
+    Recipe, RecipeGrain,
+    form=RecipeGrainForm,
+    extra=1,
+    can_delete=True,
+)
+
+
+class RecipeAdjunctForm(forms.ModelForm):
+    class Meta:
+        model = RecipeAdjunct
+        fields = ['adjunct', 'amount', 'unit', 'added_when']
+        labels = {'added_when': 'Added'}
+        widgets = {
+            'adjunct': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Adjunct'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0.01', 'placeholder': 'Amount', 'aria-label': 'Amount'}),
+            'unit': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Unit'}),
+            'added_when': forms.Select(attrs={'class': 'form-select', 'aria-label': 'Added'}),
+        }
+
+
+RecipeAdjunctFormSet = forms.inlineformset_factory(
+    Recipe, RecipeAdjunct,
+    form=RecipeAdjunctForm,
     extra=1,
     can_delete=True,
 )

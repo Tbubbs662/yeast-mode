@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect # type: ignore
 from django.contrib import messages # type: ignore
 from django.db import transaction # type: ignore
 from .models import Recipe, BrewSession
-from .forms import RecipeForm, RecipeHopFormSet, BrewSessionForm
+from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeHopFormSet, BrewSessionForm
 from django.contrib.auth.forms import UserCreationForm # type: ignore
 from django.contrib.auth import login # type: ignore
 from django.contrib.auth.decorators import login_required # type: ignore
@@ -32,24 +32,45 @@ def recipe_detail(request, pk):
     recipe = get_object_or_404(Recipe, pk=pk, owner=request.user)
     return render(request, 'brews/recipe_detail.html', {'recipe': recipe})
 
+# Ingredient sections on the recipe form, in brewing order:
+# (formset prefix, formset class, heading, add-button label, help text)
+INGREDIENT_SECTIONS = [
+    ('grains', RecipeGrainFormSet, 'Grain bill', 'Add grain', ''),
+    ('hops', RecipeHopFormSet, 'Hops', 'Add hop', 'Time is minutes for boil and whirlpool, days for dry hops.'),
+    ('adjuncts', RecipeAdjunctFormSet, 'Adjuncts', 'Add adjunct', 'Sugars, fruit, spices and other additions.'),
+]
+
 def recipe_form_view(request, recipe, title, success_message):
-    """Shared create/edit handling for a recipe and its hop additions."""
+    """Shared create/edit handling for a recipe and its ingredient formsets."""
+    data = request.POST if request.method == 'POST' else None
+    form = RecipeForm(data, instance=recipe)
+    sections = [
+        {
+            'formset': formset_class(data, instance=recipe, prefix=prefix),
+            'kind': prefix,
+            'title': heading,
+            'add_label': add_label,
+            'help': help_text,
+        }
+        for prefix, formset_class, heading, add_label, help_text in INGREDIENT_SECTIONS
+    ]
+    formsets = [section['formset'] for section in sections]
+
     if request.method == 'POST':
-        form = RecipeForm(request.POST, instance=recipe)
-        hop_formset = RecipeHopFormSet(request.POST, instance=recipe, prefix='hops')
-        if form.is_valid() and hop_formset.is_valid():
+        # Validate everything (not short-circuiting) so every error shows at once.
+        valid = [form.is_valid()] + [formset.is_valid() for formset in formsets]
+        if all(valid):
             with transaction.atomic():
                 recipe = form.save()
-                hop_formset.instance = recipe
-                hop_formset.save()
+                for formset in formsets:
+                    formset.instance = recipe
+                    formset.save()
             messages.success(request, success_message.format(name=recipe.name))
             return redirect('recipe_detail', pk=recipe.pk)
-    else:
-        form = RecipeForm(instance=recipe)
-        hop_formset = RecipeHopFormSet(instance=recipe, prefix='hops')
+
     return render(request, 'brews/recipe_form.html', {
         'form': form,
-        'hop_formset': hop_formset,
+        'ingredient_sections': sections,
         'title': title,
     })
 
