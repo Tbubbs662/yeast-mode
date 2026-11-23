@@ -2,8 +2,14 @@ from django.test import TestCase # type: ignore
 import importlib
 
 from django.apps import apps as django_apps # type: ignore
+from decimal import Decimal
+
+from django.core.exceptions import ValidationError # type: ignore
 from django.db import IntegrityError, transaction # type: ignore
-from brews.models import Adjunct, BrewSession, Grain, Hop, Recipe, Yeast # type: ignore
+from django.db.models import ProtectedError # type: ignore
+from brews.models import ( # type: ignore
+    Adjunct, BrewSession, Grain, Hop, Recipe, RecipeAdjunct, RecipeGrain, RecipeHop, Yeast,
+)
 from django.contrib.auth.models import User # type: ignore
 
 
@@ -112,3 +118,81 @@ class IngredientSeedTest(TestCase):
     def test_ingredients_ordered_by_name(self):
         names = list(Hop.objects.values_list('name', flat=True))
         self.assertEqual(names, sorted(names))
+
+
+class RecipeIngredientAmountTest(TestCase):
+    def setUp(self):
+        owner = User.objects.create_user(username='brewer', password='brewer123')
+        self.recipe = Recipe.objects.create(name='Pale Ale', owner=owner)
+        self.cascade = Hop.objects.get(name='Cascade')
+        self.two_row = Grain.objects.get(name='2-Row Pale Malt')
+        self.honey = Adjunct.objects.get(name='Honey')
+
+    def test_hop_addition(self):
+        bittering = RecipeHop.objects.create(recipe=self.recipe, hop=self.cascade, amount=Decimal('1.00'), time=60)
+        dry_hop = RecipeHop.objects.create(recipe=self.recipe, hop=self.cascade, amount=Decimal('2.5'), use=RecipeHop.DRY_HOP, time=3)
+        flameout = RecipeHop.objects.create(recipe=self.recipe, hop=self.cascade, amount=Decimal('1'), use=RecipeHop.WHIRLPOOL)
+        self.assertEqual(str(bittering), '1 oz Cascade (Boil, 60 min)')
+        self.assertEqual(str(dry_hop), '2.5 oz Cascade (Dry hop, 3 days)')
+        self.assertEqual(str(flameout), '1 oz Cascade (Whirlpool)')
+        # The same hop can be added more than once, in the order entered.
+        self.assertEqual(list(self.recipe.hop_additions.all()), [bittering, dry_hop, flameout])
+
+    def test_grain_bill(self):
+        grain = RecipeGrain.objects.create(recipe=self.recipe, grain=self.two_row, amount=Decimal('10'))
+        self.assertEqual(str(grain), '10 lb 2-Row Pale Malt')
+        self.assertEqual(list(self.recipe.grain_bill.all()), [grain])
+
+    def test_adjunct_addition(self):
+        adjunct = RecipeAdjunct.objects.create(recipe=self.recipe, adjunct=self.honey, amount=Decimal('3'), added_when=RecipeAdjunct.SECONDARY)
+        self.assertEqual(str(adjunct), '3 lb Honey (Secondary)')
+        self.assertEqual(list(self.recipe.adjunct_additions.all()), [adjunct])
+
+    def test_yeast_and_amount(self):
+        self.recipe.yeast = Yeast.objects.get(name='SafAle US-05')
+        self.recipe.yeast_amount = Decimal('2')
+        self.recipe.full_clean()
+        self.recipe.save()
+        self.recipe.refresh_from_db()
+        self.assertEqual(self.recipe.yeast.name, 'SafAle US-05')
+        self.assertEqual(self.recipe.yeast_amount, Decimal('2'))
+
+    def test_amounts_must_be_positive(self):
+        for line in (
+            RecipeHop(recipe=self.recipe, hop=self.cascade, amount=Decimal('0')),
+            RecipeGrain(recipe=self.recipe, grain=self.two_row, amount=Decimal('-1')),
+            RecipeAdjunct(recipe=self.recipe, adjunct=self.honey, amount=Decimal('0')),
+        ):
+            with self.subTest(line=type(line).__name__):
+                with self.assertRaises(ValidationError):
+                    line.full_clean()
+        self.recipe.yeast_amount = Decimal('0')
+        with self.assertRaises(ValidationError):
+            self.recipe.full_clean()
+
+    def test_ingredient_in_use_cannot_be_deleted(self):
+        RecipeHop.objects.create(recipe=self.recipe, hop=self.cascade, amount=Decimal('1'))
+        RecipeGrain.objects.create(recipe=self.recipe, grain=self.two_row, amount=Decimal('10'))
+        RecipeAdjunct.objects.create(recipe=self.recipe, adjunct=self.honey, amount=Decimal('1'))
+        for ingredient in (self.cascade, self.two_row, self.honey):
+            with self.subTest(ingredient=str(ingredient)):
+                with self.assertRaises(ProtectedError):
+                    ingredient.delete()
+
+    def test_deleting_recipe_removes_its_line_items(self):
+        RecipeHop.objects.create(recipe=self.recipe, hop=self.cascade, amount=Decimal('1'))
+        RecipeGrain.objects.create(recipe=self.recipe, grain=self.two_row, amount=Decimal('10'))
+        RecipeAdjunct.objects.create(recipe=self.recipe, adjunct=self.honey, amount=Decimal('1'))
+        self.recipe.delete()
+        self.assertEqual(RecipeHop.objects.count(), 0)
+        self.assertEqual(RecipeGrain.objects.count(), 0)
+        self.assertEqual(RecipeAdjunct.objects.count(), 0)
+        self.assertTrue(Hop.objects.filter(pk=self.cascade.pk).exists())
+
+    def test_admin_recipe_page_shows_ingredient_inlines(self):
+        admin_user = User.objects.create_superuser(username='admin', password='admin123')
+        self.client.force_login(admin_user)
+        response = self.client.get(f'/admin/brews/recipe/{self.recipe.pk}/change/')
+        self.assertEqual(response.status_code, 200)
+        for prefix in ('grain_bill', 'hop_additions', 'adjunct_additions', 'yeast_amount'):
+            self.assertContains(response, prefix)
