@@ -1316,3 +1316,95 @@ class BoardTabsTest(TestCase):
         response = self.client.get(self.url)
         self.assertContains(response, 'No batches yet')
         self.assertNotContains(response, 'role="tablist"')
+
+
+class BoardDragDropTest(TestCase):
+    """The JSON side of session_status used by drag and drop, and the board markup it relies on."""
+
+    def setUp(self):
+        from django.urls import reverse # type: ignore
+        self.reverse = reverse
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.client.force_login(self.user)
+        self.recipe = Recipe.objects.create(name='Hazy IPA', owner=self.user)
+        self.session = BrewSession.objects.create(recipe=self.recipe, batch_number=3, status='fermenting', brew_date='2026-11-01')
+        self.url = reverse('session_status', args=[self.session.pk])
+
+    def move(self, status, client=None, **extra):
+        return (client or self.client).post(self.url, {'status': status}, HTTP_ACCEPT='application/json', **extra)
+
+    def test_json_move_returns_fresh_card(self):
+        response = self.move('conditioning')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'conditioning')
+        self.assertEqual(data['message'], 'Hazy IPA batch 3 moved to Conditioning.')
+        self.assertIn(f'data-session="{self.session.pk}"', data['card'])
+        self.assertIn('Move to Ready', data['card'])
+        self.assertIn('csrfmiddlewaretoken', data['card'])  # its Move form still works
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.status, 'conditioning')
+
+    def test_json_move_updates_status_changed_at(self):
+        import datetime
+        from django.utils import timezone # type: ignore
+        past = timezone.now() - datetime.timedelta(days=10)
+        BrewSession.objects.filter(pk=self.session.pk).update(status_changed_at=past)
+        self.move('ready')
+        self.session.refresh_from_db()
+        self.assertGreater(self.session.status_changed_at, past)
+
+    def test_json_move_leaves_no_flash_message(self):
+        self.move('ready')
+        response = self.client.get(self.reverse('dashboard'))
+        self.assertNotContains(response, 'moved to Ready')
+
+    def test_json_errors(self):
+        response = self.move('bottled')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {'error': 'Unknown status.'})
+
+        other = User.objects.create_user(username='other', password='other-pass-123')
+        self.client.force_login(other)
+        self.assertEqual(self.move('ready').status_code, 404)
+
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.status, 'fermenting')
+
+    def test_json_move_requires_csrf_token(self):
+        from django.test import Client # type: ignore
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        self.assertEqual(self.move('ready', client=client).status_code, 403)
+
+        page = client.get(self.reverse('dashboard'))
+        token = str(page.context['csrf_token'])
+        self.assertEqual(self.move('ready', client=client, HTTP_X_CSRFTOKEN=token).status_code, 200)
+
+    def test_form_post_still_redirects_with_message(self):
+        response = self.client.post(self.url, {'status': 'conditioning'}, follow=True)
+        self.assertRedirects(response, self.reverse('dashboard'))
+        self.assertContains(response, 'Hazy IPA batch 3 moved to Conditioning.')
+
+    def test_form_post_to_same_status_shows_no_message(self):
+        response = self.client.post(self.url, {'status': 'fermenting'}, follow=True)
+        self.assertNotContains(response, 'moved to')
+
+    def test_board_markup_for_dragging(self):
+        from django.templatetags.static import static # type: ignore
+        response = self.client.get(self.reverse('dashboard'))
+        self.assertContains(response, f'data-session="{self.session.pk}" data-status-url="{self.url}"')
+        for status in ('fermenting', 'conditioning', 'ready'):
+            self.assertContains(response, f'<div class="board-cards" data-status="{status}">')
+        self.assertContains(response, 'sortablejs@1.15.6/Sortable.min.js')
+        self.assertContains(response, 'integrity="sha384-')
+        self.assertContains(response, f'<script src="{static("brews/js/board-drag.js")}"></script>')
+        # Brewed 3+ weeks ago, so it's in Needs attention, tagged for removal after a move.
+        self.assertContains(response, f'<li data-session="{self.session.pk}">', count=1)
+        self.assertContains(response, 'id="board-live" role="status"')
+
+    def test_empty_columns_keep_a_placeholder_drop_target(self):
+        response = self.client.get(self.reverse('dashboard'))
+        content = response.content.decode()
+        self.assertIn('<div class="board-empty">Nothing here yet</div>', content)        # conditioning, ready
+        self.assertIn('<div class="board-empty" hidden>Nothing here yet</div>', content)  # fermenting

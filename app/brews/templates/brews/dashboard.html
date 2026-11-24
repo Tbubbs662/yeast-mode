@@ -30,7 +30,7 @@
             <h2 class="section-title mb-2" id="attention-title"><i class="bi bi-bell me-2" aria-hidden="true"></i>Needs attention</h2>
             <ul class="attention-list">
                 {% for item in attention %}
-                <li>
+                <li data-session="{{ item.session.pk }}">
                     <span class="dot dot-{{ item.session.status }}" aria-hidden="true"></span>
                     <span>
                         <a href="{% url 'session_detail' item.session.pk %}">{{ item.session.recipe.name }}, Batch #{{ item.session.batch_number }}</a>:
@@ -73,6 +73,9 @@
         {% endfor %}
     </div>
 
+    {# Drag and drop announces moves here for screen readers. #}
+    <div class="visually-hidden" id="board-live" role="status" aria-live="polite"></div>
+
     <div class="board">
         {% include "brews/partials/board_column.html" with status="fermenting" label="Fermenting" sessions=fermenting %}
         {% include "brews/partials/board_column.html" with status="conditioning" label="Conditioning" sessions=conditioning %}
@@ -90,6 +93,12 @@
 
 {% block scripts %}
 <script src="{% static 'brews/js/board-tabs.js' %}"></script>
+{% if fermenting or conditioning or ready %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"
+        integrity="sha384-HZZ/fukV+9G8gwTNjN7zQDG0Sp7MsZy5DDN6VfY3Be7V9dvQpEpR2jF2HlyFUUjU"
+        crossorigin="anonymous"></script>
+<script src="{% static 'brews/js/board-drag.js' %}"></script>
+{% endif %}
 {% if fermenting or conditioning or ready or archived_count %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>

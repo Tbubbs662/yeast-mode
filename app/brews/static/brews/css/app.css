@@ -1037,3 +1037,46 @@ body > main {
         display: none;
     }
 }
+
+/* --------------------------------------------------------------------------
+   Board drag and drop (board-drag.js)
+   -------------------------------------------------------------------------- */
+.board-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 4rem; /* an empty column is still a drop target */
+}
+
+.board-cards .board-empty[hidden] {
+    display: none;
+}
+
+.brew-card {
+    cursor: grab;
+}
+
+/* Where the card will land. */
+.brew-card-ghost {
+    opacity: 0.35;
+    border-style: dashed;
+    border-color: var(--ym-accent);
+}
+
+/* The copy that follows the pointer. */
+.brew-card-dragging {
+    cursor: grabbing;
+    transform: rotate(1.5deg);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Dragging over a phone tab: highlight it instead of showing the card inside. */
+.board-tab > .brew-card {
+    display: none;
+}
+
+.board-tab:has(> .brew-card) {
+    color: var(--ym-text);
+    background: color-mix(in srgb, var(--ym-accent) 25%, transparent);
+    outline: 2px dashed var(--ym-accent);
+}
