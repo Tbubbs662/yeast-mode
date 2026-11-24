@@ -1493,7 +1493,8 @@ class DashboardStatsTest(TestCase):
         self.assertContains(response, '2 beer · 1 mead')
         self.assertContains(response, 'Brewing activity')
         self.assertContains(response, 'id="activity-data"')
-        self.assertContains(response, 'dashboard-activity.js')
+        from django.templatetags.static import static # type: ignore
+        self.assertContains(response, f'<script src="{static("brews/js/dashboard-activity.js")}"></script>')
         self.assertContains(response, '<summary>Show as table</summary>', html=True)
         self.assertNotContains(response, 'Brews by status')
         self.assertNotContains(response, 'Recipes by type')
