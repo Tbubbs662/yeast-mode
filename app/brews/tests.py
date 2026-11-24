@@ -709,9 +709,12 @@ class SiteChromeTest(TestCase):
 
     def assertChrome(self, response):
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'rel="icon" href="/static/brews/img/favicon.svg')
-        self.assertContains(response, 'rel="icon" href="/static/brews/img/favicon-32.png')
-        self.assertContains(response, 'rel="apple-touch-icon" href="/static/brews/img/apple-touch-icon.png')
+        # static() gives the right URL for whichever storage is active
+        # (?v= stamps in dev, hashed filenames when DEBUG is off).
+        from django.templatetags.static import static # type: ignore
+        self.assertContains(response, f'rel="icon" href="{static("brews/img/favicon.svg")}"')
+        self.assertContains(response, f'rel="icon" href="{static("brews/img/favicon-32.png")}"')
+        self.assertContains(response, f'rel="apple-touch-icon" href="{static("brews/img/apple-touch-icon.png")}"')
         self.assertContains(response, '<footer class="site-footer">')
         self.assertContains(response, 'href="https://github.com/Tbubbs662/yeast-mode"')
 
@@ -729,7 +732,8 @@ class SiteChromeTest(TestCase):
     def test_favicon_ico_redirects_to_static_icon(self):
         response = self.client.get('/favicon.ico')
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response['Location'].startswith('/static/brews/img/favicon.ico'))
+        from django.templatetags.static import static # type: ignore
+        self.assertEqual(response['Location'], static('brews/img/favicon.ico'))
 
     def test_icon_files_exist(self):
         from django.contrib.staticfiles import finders # type: ignore
