@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured # type: ignore
 import environ # type: ignore
 import os
 
@@ -23,11 +25,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env.str('SECRET_KEY', default='dev-secret-key-change-in-production')
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=True)
+# Off unless explicitly turned on (docker-compose.yml does that for development),
+# so a deploy that forgets to set it doesn't show error pages to everyone.
+DEBUG = env.bool('DEBUG', default=False)
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# Development may fall back to a known key; anything else must set its own,
+# and the app refuses to start rather than run with a public key.
+DEV_SECRET_KEY = 'dev-secret-key-change-in-production'
+SECRET_KEY = env.str('SECRET_KEY', default=DEV_SECRET_KEY if DEBUG else '')
+if not DEBUG and (not SECRET_KEY.strip() or SECRET_KEY == DEV_SECRET_KEY):
+    raise ImproperlyConfigured(
+        'Set the SECRET_KEY environment variable to a long random value '
+        '(the development key is only allowed when DEBUG is on).'
+    )
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
