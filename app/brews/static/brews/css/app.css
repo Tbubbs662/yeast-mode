@@ -944,3 +944,96 @@ body > main {
 .picker-section[hidden] {
     display: none;
 }
+
+/* --------------------------------------------------------------------------
+   Board tabs on phones (board-tabs.js adds .board-tabbed)
+   -------------------------------------------------------------------------- */
+.board-tabs {
+    display: none;
+}
+
+@media (max-width: 639.98px) {
+    .board-tabs:not([hidden]) {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        margin-bottom: 0.75rem;
+        background: var(--ym-surface);
+        border: 1px solid var(--ym-border);
+        border-radius: var(--ym-radius);
+        position: sticky;
+        top: 3.5rem; /* just below the sticky navbar (57px tall) */
+        z-index: 5;
+    }
+
+    .board-tab {
+        flex: 1 1 auto; /* share spare width, but never squeeze a label */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        padding: 0.55rem 0.4rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--ym-muted);
+        background: transparent;
+        border: 0;
+        border-radius: var(--ym-radius-sm);
+        white-space: nowrap;
+    }
+
+    .board-tab .dot {
+        flex: none;
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+    }
+
+    .board-tab .count {
+        background: var(--ym-surface-2);
+        border-radius: 999px;
+        padding: 0 0.45rem;
+        font-size: 0.7rem;
+    }
+
+    .board-tab[aria-selected="true"] {
+        color: var(--ym-text);
+        background: var(--ym-surface-2);
+    }
+
+    .board-tab[aria-selected="true"] .count {
+        background: var(--ym-bg);
+    }
+
+    .board-tab:focus-visible {
+        outline: 2px solid var(--ym-accent);
+        outline-offset: 1px;
+    }
+
+    /* One column at a time; its header repeats the tab, so hide it. */
+    .board-tabbed .board-column:not(.is-active) {
+        display: none;
+    }
+
+    .board-tabbed .board-column-header {
+        display: none;
+    }
+
+    .board-tabbed .board-column {
+        padding: 0;
+        border: 0;
+        background: none;
+    }
+}
+
+/* The narrowest phones: drop the dots so all three labels and counts fit. */
+@media (max-width: 399.98px) {
+    .board-tab {
+        padding: 0.55rem 0.25rem;
+        font-size: 0.75rem;
+    }
+
+    .board-tab .dot {
+        display: none;
+    }
+}
