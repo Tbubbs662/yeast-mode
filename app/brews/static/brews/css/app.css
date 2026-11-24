@@ -421,6 +421,12 @@ h1, h2, h3, h4, h5 {
     padding: 0.6rem 0.85rem;
 }
 
+/* The padding shorthand above also resets the right padding Bootstrap keeps
+   for the dropdown arrow, so give it back. */
+.form-select {
+    padding-right: 2.25rem;
+}
+
 .form-card input:focus,
 .form-card select:focus,
 .form-card textarea:focus,
