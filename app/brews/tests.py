@@ -1408,3 +1408,108 @@ class BoardDragDropTest(TestCase):
         content = response.content.decode()
         self.assertIn('<div class="board-empty">Nothing here yet</div>', content)        # conditioning, ready
         self.assertIn('<div class="board-empty" hidden>Nothing here yet</div>', content)  # fermenting
+
+
+class DashboardStatsTest(TestCase):
+    """Stat tile numbers and the monthly activity series (brews/stats.py), and how the dashboard shows them."""
+
+    def setUp(self):
+        import datetime
+        self.date = datetime.date
+        self.today = datetime.date(2026, 11, 24)
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        make_recipe = lambda name, t: Recipe.objects.create(owner=self.user, name=name, brew_type=t)
+        self.ipa = make_recipe('Hazy IPA', 'beer')
+        self.stout = make_recipe('Stout', 'beer')
+        self.mead = make_recipe('Mead', 'mead')
+        self.batch = lambda recipe, date, og=None, fg=None: BrewSession.objects.create(
+            recipe=recipe, brew_date=date, original_gravity=og, final_gravity=fg)
+
+        other = User.objects.create_user(username='other', password='other-pass-123')
+        theirs = Recipe.objects.create(owner=other, name='Not mine', brew_type='cider')
+        BrewSession.objects.create(recipe=theirs, brew_date=self.today, original_gravity='1.100', final_gravity='1.000')
+
+    def stats(self):
+        from brews.stats import dashboard_stats # type: ignore
+        return dashboard_stats(self.user, today=self.today)
+
+    def activity(self):
+        from brews.stats import monthly_activity # type: ignore
+        return monthly_activity(self.user, today=self.today)
+
+    def test_batches_this_year_and_total(self):
+        self.batch(self.ipa, self.date(2026, 1, 1))
+        self.batch(self.ipa, self.date(2026, 11, 24))
+        self.batch(self.stout, self.date(2025, 12, 31))
+        self.batch(self.stout, self.date(2026, 12, 5))  # planned, not brewed yet
+        stats = self.stats()
+        self.assertEqual(stats['batches_this_year'], 2)
+        self.assertEqual(stats['batches_total'], 3)
+
+    def test_average_abv_uses_only_batches_with_both_gravities(self):
+        self.batch(self.ipa, self.date(2026, 5, 1), Decimal('1.060'), Decimal('1.010'))   # 6.5625
+        self.batch(self.ipa, self.date(2026, 6, 1), Decimal('1.050'), Decimal('1.010'))   # 5.25
+        self.batch(self.stout, self.date(2026, 7, 1), Decimal('1.070'))                   # no FG
+        stats = self.stats()
+        self.assertEqual(stats['average_abv'], 5.9)
+        self.assertEqual(stats['abv_batch_count'], 2)
+
+    def test_average_abv_is_none_without_data(self):
+        self.batch(self.ipa, self.date(2026, 5, 1), Decimal('1.060'))
+        self.assertIsNone(self.stats()['average_abv'])
+
+    def test_recipe_breakdown(self):
+        stats = self.stats()
+        self.assertEqual(stats['recipe_count'], 3)
+        self.assertEqual(stats['recipe_types'], [('Beer', 2), ('Mead', 1)])
+
+    def test_monthly_activity_covers_twelve_months_with_zeros(self):
+        self.batch(self.ipa, self.date(2025, 12, 1))   # first month in the window
+        self.batch(self.ipa, self.date(2026, 3, 10))
+        self.batch(self.stout, self.date(2026, 3, 28))
+        self.batch(self.mead, self.date(2026, 11, 2))  # current month
+        self.batch(self.mead, self.date(2025, 11, 30))  # just before the window
+        activity = self.activity()
+        self.assertEqual(len(activity), 12)
+        self.assertEqual(activity[0], (self.date(2025, 12, 1), 1))
+        self.assertEqual(activity[-1], (self.date(2026, 11, 1), 1))
+        self.assertEqual(dict(activity)[self.date(2026, 3, 1)], 2)
+        self.assertEqual(sum(count for _, count in activity), 4)
+
+    def test_monthly_activity_window_crosses_year_start(self):
+        from brews.stats import monthly_activity # type: ignore
+        months = [m for m, _ in monthly_activity(self.user, today=self.date(2026, 2, 15))]
+        self.assertEqual(months[0], self.date(2025, 3, 1))
+        self.assertEqual(months[-1], self.date(2026, 2, 1))
+
+    def test_dashboard_shows_tiles_and_activity(self):
+        from django.utils import timezone # type: ignore
+        today = timezone.localdate()
+        self.batch(self.ipa, today, Decimal('1.060'), Decimal('1.010'))
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+        self.assertContains(response, 'Batches this year')
+        self.assertContains(response, '<span class="stat-value">6.6%</span>', html=True)
+        self.assertContains(response, '2 beer · 1 mead')
+        self.assertContains(response, 'Brewing activity')
+        self.assertContains(response, 'id="activity-data"')
+        self.assertContains(response, 'dashboard-activity.js')
+        self.assertContains(response, '<summary>Show as table</summary>', html=True)
+        self.assertNotContains(response, 'Brews by status')
+        self.assertNotContains(response, 'Recipes by type')
+
+    def test_dashboard_hides_abv_tile_without_data(self):
+        from django.utils import timezone # type: ignore
+        self.batch(self.ipa, timezone.localdate())
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+        self.assertContains(response, 'Batches this year')
+        self.assertNotContains(response, 'Average ABV')
+
+    def test_no_recent_activity_shows_message_not_chart(self):
+        self.batch(self.ipa, self.date(2020, 5, 1))
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+        self.assertContains(response, 'No batches brewed in the last 12 months.')
+        self.assertNotContains(response, 'id="activity-chart"')
+        self.assertNotContains(response, 'chart.umd.min.js')

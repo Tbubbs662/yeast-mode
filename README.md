@@ -14,7 +14,7 @@ YeastMode is an app that allows home brewers to track their recipes, brew sessio
 
 - **Recipes:** grain bill, hop schedule, adjuncts and yeast, with target gravities and calculated ABV. Search by name or style, filter by brew type, and sort by recently updated, name, ABV or most brewed.
 - **Brew sessions:** log each batch of a recipe with brew date, original and final gravity, ABV and notes.
-- **Dashboard:** a board of fermenting, conditioning and ready batches. Each card shows the day count, days in its current status, OG/ABV and a one-click "Move to next status" button.
+- **Dashboard:** a board of fermenting, conditioning and ready batches. Drag a card to change its status (or use its "Move to" button); each card shows the day count, days in its current status and OG/ABV. On phones the columns become tabs. Stat tiles and a monthly activity chart sit alongside.
 - **Needs attention:** the dashboard flags batches that have fermented for two weeks (check gravity) or conditioned for three (probably ready).
 - **Brew history:** every batch you've brewed, with search, filters by status, type and year, and pagination.
 
@@ -22,7 +22,7 @@ YeastMode is an app that allows home brewers to track their recipes, brew sessio
 
 Screenshots use a demo account with sample data. To retake them with the app running, use `docs/screenshots/take.sh`.
 
-**Dashboard:** batches that need attention, the status board and charts.
+**Dashboard:** batches that need attention, brewing stats, the status board and monthly activity.
 
 ![YeastMode dashboard with a "Needs attention" list and a board of fermenting, conditioning and ready batches](docs/screenshots/dashboard.png)
 
