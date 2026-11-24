@@ -11,7 +11,7 @@
         <form method="post">
             {% csrf_token %}
             <div class="form-actions">
-                <a href="javascript:history.back()" class="btn btn-ghost">Cancel</a>
+                <a href="{% url 'session_detail' session.pk %}" class="btn btn-ghost">Cancel</a>
                 <button type="submit" class="btn btn-danger"><i class="bi bi-trash"></i> Delete</button>
             </div>
         </form>

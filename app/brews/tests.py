@@ -544,3 +544,54 @@ class CacheBustingStaticFilesStorageTest(TestCase):
 
     def test_missing_file_gets_plain_url(self):
         self.assertTrue(self.storage.url('brews/css/does-not-exist.css').endswith('brews/css/does-not-exist.css'))
+
+
+class CancelLinkTest(TestCase):
+    """Every form's Cancel button links to a real page instead of the browser history."""
+
+    def setUp(self):
+        from django.urls import reverse # type: ignore
+        self.reverse = reverse
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.recipe = Recipe.objects.create(name='Saison', brew_type='beer', owner=self.user)
+        self.session = BrewSession.objects.create(
+            recipe=self.recipe, batch_number='1', status='fermenting', brew_date='2026-07-14',
+        )
+
+    def assertCancelLinksTo(self, page_url, expected_url):
+        response = self.client.get(page_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'<a href="{expected_url}" class="btn btn-ghost">Cancel</a>', html=True)
+        self.assertNotContains(response, 'history.back')
+
+    def test_logged_in_pages(self):
+        self.client.force_login(self.user)
+        recipe_page = self.reverse('recipe_detail', args=[self.recipe.pk])
+        session_page = self.reverse('session_detail', args=[self.session.pk])
+        cases = [
+            (self.reverse('recipe_create'), self.reverse('recipe_list')),
+            (self.reverse('recipe_edit', args=[self.recipe.pk]), recipe_page),
+            (self.reverse('recipe_delete', args=[self.recipe.pk]), recipe_page),
+            (self.reverse('session_create', args=[self.recipe.pk]), recipe_page),
+            (self.reverse('session_edit', args=[self.session.pk]), session_page),
+            (self.reverse('session_delete', args=[self.session.pk]), session_page),
+        ]
+        for page_url, expected_url in cases:
+            with self.subTest(page=page_url):
+                self.assertCancelLinksTo(page_url, expected_url)
+
+    def test_auth_pages_cancel_to_landing(self):
+        for name in ('login', 'signup'):
+            with self.subTest(page=name):
+                self.assertCancelLinksTo(self.reverse(name), self.reverse('landing'))
+
+    def test_cancel_link_survives_failed_save(self):
+        """After a failed save, Cancel still leaves the form instead of reloading it."""
+        self.client.force_login(self.user)
+        response = self.client.post(self.reverse('session_edit', args=[self.session.pk]), {})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'<a href="{self.reverse("session_detail", args=[self.session.pk])}" class="btn btn-ghost">Cancel</a>',
+            html=True,
+        )
