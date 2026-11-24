@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect # type: ignore
 from django.contrib import messages # type: ignore
+from django.core.paginator import Paginator # type: ignore
 from django.db import transaction # type: ignore
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Q # type: ignore
 from django.db.models.functions import Lower # type: ignore
@@ -247,7 +248,7 @@ def dashboard(request):
     fermenting = list(sessions.filter(status='fermenting'))
     conditioning = list(sessions.filter(status='conditioning'))
     ready = sessions.filter(status='ready')
-    archived = sessions.filter(status='archived')
+    archived_count = sessions.filter(status='archived').count()
     beer_count = Recipe.objects.filter(owner=request.user, brew_type='beer').count()
     mead_count = Recipe.objects.filter(owner=request.user, brew_type='mead').count()
     cider_count = Recipe.objects.filter(owner=request.user, brew_type='cider').count()
@@ -257,9 +258,62 @@ def dashboard(request):
         'fermenting': fermenting,
         'conditioning': conditioning,
         'ready': ready,
-        'archived': archived,
+        'archived_count': archived_count,
         'beer': beer_count,
         'mead': mead_count,
         'cider': cider_count,
         'other': other_count
+    })
+
+
+HISTORY_PAGE_SIZE = 20
+
+
+@login_required
+def brew_history(request):
+    """Every batch the user has brewed, newest first, filtered by the
+    ?q= (recipe name), ?status=, ?type= and ?year= query string."""
+    sessions = BrewSession.objects.filter(recipe__owner=request.user)
+    years = [d.year for d in sessions.dates('brew_date', 'year', order='DESC')]
+
+    query = request.GET.get('q', '').strip()
+    status = request.GET.get('status', '')
+    if status not in dict(BrewSession.STATUS_CHOICES):
+        status = ''
+    brew_type = request.GET.get('type', '')
+    if brew_type not in dict(Recipe.BREW_TYPE_CHOICES):
+        brew_type = ''
+    year = request.GET.get('year', '')
+    if not year.isdigit() or int(year) not in years:
+        year = ''
+
+    filtered = sessions.select_related('recipe')
+    if query:
+        filtered = filtered.filter(recipe__name__icontains=query)
+    if status:
+        filtered = filtered.filter(status=status)
+    if brew_type:
+        filtered = filtered.filter(recipe__brew_type=brew_type)
+    if year:
+        filtered = filtered.filter(brew_date__year=int(year))
+    filtered = filtered.order_by('-brew_date', '-batch_number', '-pk')
+
+    page = Paginator(filtered, HISTORY_PAGE_SIZE).get_page(request.GET.get('page'))
+
+    # Page links keep the filters; the Clear link drops them.
+    params = request.GET.copy()
+    params.pop('page', None)
+
+    return render(request, 'brews/brew_history.html', {
+        'page': page,
+        'total_count': sessions.count(),
+        'query': query,
+        'status': status,
+        'brew_type': brew_type,
+        'year': year,
+        'years': years,
+        'is_filtered': bool(query or status or brew_type or year),
+        'status_choices': BrewSession.STATUS_CHOICES,
+        'brew_type_choices': Recipe.BREW_TYPE_CHOICES,
+        'filter_query': params.urlencode(),
     })

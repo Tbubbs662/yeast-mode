@@ -832,3 +832,85 @@ body > main {
         opacity: 1;
     }
 }
+
+/* --------------------------------------------------------------------------
+   Dashboard archived link and brew history
+   -------------------------------------------------------------------------- */
+.board-footer {
+    text-align: right;
+    margin: 1rem 0 0;
+    font-size: 0.875rem;
+}
+
+.board-footer a {
+    color: var(--ym-muted);
+    text-decoration: none;
+}
+
+.board-footer a:hover {
+    color: var(--ym-accent);
+}
+
+.history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.history-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 0.75rem 1rem;
+}
+
+.history-main {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.history-name {
+    font-weight: 600;
+    color: var(--ym-text);
+    text-decoration: none;
+}
+
+.history-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: var(--ym-muted);
+}
+
+.history-meta .bi {
+    margin-right: 0.35rem;
+}
+
+.history-abv {
+    min-width: 5.5rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.history-pages {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1.25rem;
+}
+
+@media (max-width: 575.98px) {
+    .history-abv {
+        min-width: 0;
+        text-align: left;
+    }
+}
