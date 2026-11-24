@@ -3,12 +3,19 @@ from django.contrib import messages # type: ignore
 from django.db import transaction # type: ignore
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Q # type: ignore
 from django.db.models.functions import Lower # type: ignore
+from django.templatetags.static import static # type: ignore
 from django.urls import reverse # type: ignore
 from .models import BrewSession, Recipe, RecipeAdjunct, RecipeGrain, RecipeHop
 from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeHopFormSet, BrewSessionForm
 from django.contrib.auth.forms import UserCreationForm # type: ignore
 from django.contrib.auth import login # type: ignore
 from django.contrib.auth.decorators import login_required # type: ignore
+
+def favicon(request):
+    # Built per request: the production manifest storage can't resolve
+    # static URLs until collectstatic has run. Not permanent, because the
+    # target carries a version stamp that changes when the icon does.
+    return redirect(static('brews/img/favicon.ico'))
 
 def landing(request):
     return render(request, 'brews/landing.html')

@@ -681,6 +681,11 @@ class RecipeListFilterTest(TestCase):
         self.assertContains(response, 'No recipes yet')
         self.assertNotContains(response, 'id="recipe-filters"')
 
+    def test_card_shows_abv_once_without_percent_icon(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, '6.96% ABV')
+        self.assertNotContains(response, 'bi-percent')
+
     def test_batch_counts_do_not_add_queries_per_recipe(self):
         with CaptureQueriesContext(connection) as ctx:
             self.client.get(self.url)
@@ -692,3 +697,46 @@ class RecipeListFilterTest(TestCase):
             response = self.client.get(self.url)
         self.assertEqual(len(ctx), baseline)
         self.assertContains(response, '2 batches')
+
+
+class SiteChromeTest(TestCase):
+    """Favicon links and the site footer appear on every page."""
+
+    def setUp(self):
+        from django.urls import reverse # type: ignore
+        self.reverse = reverse
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+
+    def assertChrome(self, response):
+        self.assertEqual(response.status_code, 200)
+        # static() gives the right URL for whichever storage is active
+        # (?v= stamps in dev, hashed filenames when DEBUG is off).
+        from django.templatetags.static import static # type: ignore
+        self.assertContains(response, f'rel="icon" href="{static("brews/img/favicon.svg")}"')
+        self.assertContains(response, f'rel="icon" href="{static("brews/img/favicon-32.png")}"')
+        self.assertContains(response, f'rel="apple-touch-icon" href="{static("brews/img/apple-touch-icon.png")}"')
+        self.assertContains(response, '<footer class="site-footer">')
+        self.assertContains(response, 'href="https://github.com/Tbubbs662/yeast-mode"')
+
+    def test_logged_out_pages(self):
+        for name in ('landing', 'login', 'signup'):
+            with self.subTest(page=name):
+                self.assertChrome(self.client.get(self.reverse(name)))
+
+    def test_logged_in_pages(self):
+        self.client.force_login(self.user)
+        for name in ('dashboard', 'recipe_list'):
+            with self.subTest(page=name):
+                self.assertChrome(self.client.get(self.reverse(name)))
+
+    def test_favicon_ico_redirects_to_static_icon(self):
+        response = self.client.get('/favicon.ico')
+        self.assertEqual(response.status_code, 302)
+        from django.templatetags.static import static # type: ignore
+        self.assertEqual(response['Location'], static('brews/img/favicon.ico'))
+
+    def test_icon_files_exist(self):
+        from django.contrib.staticfiles import finders # type: ignore
+        for path in ('favicon.svg', 'favicon-32.png', 'favicon.ico', 'apple-touch-icon.png'):
+            with self.subTest(file=path):
+                self.assertIsNotNone(finders.find(f'brews/img/{path}'))

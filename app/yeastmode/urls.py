@@ -16,8 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin # type: ignore
 from django.urls import path, include # type: ignore
+from brews import views as brews_views # type: ignore
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # Some browsers and crawlers ask for /favicon.ico regardless of the <link> tags.
+    path('favicon.ico', brews_views.favicon),
     path('', include('brews.urls')),
 ]

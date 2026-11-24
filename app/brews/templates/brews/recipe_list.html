@@ -66,7 +66,7 @@
                     {% endif %}
                     <div class="d-flex gap-3 mt-auto pt-2 small text-muted">
                         <span><i class="bi bi-layers me-1"></i>{{ recipe.batch_count }} batch{{ recipe.batch_count|pluralize:"es" }}</span>
-                        {% if recipe.abv %}<span><i class="bi bi-percent me-1"></i>{{ recipe.abv }}% ABV</span>{% endif %}
+                        {% if recipe.abv %}<span><i class="bi bi-droplet-half me-1" aria-hidden="true"></i>{{ recipe.abv }}% ABV</span>{% endif %}
                     </div>
                 </div>
             </article>
