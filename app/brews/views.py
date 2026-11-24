@@ -12,7 +12,8 @@ from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeH
 from django.contrib.auth.forms import UserCreationForm # type: ignore
 from django.contrib.auth import login # type: ignore
 from django.contrib.auth.decorators import login_required # type: ignore
-from django.http import HttpResponseBadRequest # type: ignore
+from django.http import HttpResponseBadRequest, JsonResponse # type: ignore
+from django.template.loader import render_to_string # type: ignore
 from django.views.decorators.http import require_POST # type: ignore
 
 def favicon(request):
@@ -223,18 +224,36 @@ def session_delete(request, pk):
 @login_required
 @require_POST
 def session_status(request, pk):
-    """Move a batch to another status (the board's "Move to …" action)."""
-    session = get_object_or_404(BrewSession, pk=pk, recipe__owner=request.user)
+    """Move a batch to another status.
+
+    The board's "Move to …" form posts here and is redirected back. Drag and
+    drop asks for JSON (Accept: application/json) and gets the re-rendered
+    card instead, so the page can update without reloading.
+    """
+    session = get_object_or_404(
+        BrewSession.objects.select_related('recipe'), pk=pk, recipe__owner=request.user,
+    )
+    wants_json = 'application/json' in request.headers.get('Accept', '')
     status = request.POST.get('status')
     if status not in dict(BrewSession.STATUS_CHOICES):
+        if wants_json:
+            return JsonResponse({'error': 'Unknown status.'}, status=400)
         return HttpResponseBadRequest('Unknown status.')
-    if status != session.status:
+
+    changed = status != session.status
+    if changed:
         session.status = status
         session.save()
-        messages.success(
-            request,
-            f'{session.recipe.name} batch {session.batch_number} moved to {session.get_status_display()}.',
-        )
+    message = f'{session.recipe.name} batch {session.batch_number} moved to {session.get_status_display()}.'
+
+    if wants_json:
+        return JsonResponse({
+            'status': session.status,
+            'message': message,
+            'card': render_to_string('brews/partials/brew_card.html', {'session': session}, request=request),
+        })
+    if changed:
+        messages.success(request, message)
     return redirect('dashboard')
 
 @login_required
