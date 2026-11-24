@@ -1,6 +1,6 @@
-<section class="board-column">
+<section class="board-column" id="column-{{ status }}" data-status="{{ status }}" aria-labelledby="column-{{ status }}-title">
     <div class="board-column-header">
-        <span><span class="dot dot-{{ status }}"></span>{{ label }}</span>
+        <span id="column-{{ status }}-title"><span class="dot dot-{{ status }}"></span>{{ label }}</span>
         <span class="count">{{ sessions|length }}</span>
     </div>
     {% for session in sessions %}

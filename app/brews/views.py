@@ -255,6 +255,11 @@ def dashboard(request):
     other_count = Recipe.objects.filter(owner=request.user, brew_type='other').count()
     return render(request, 'brews/dashboard.html', {
         'attention': needs_attention(fermenting + conditioning),
+        'board_columns': [
+            ('fermenting', 'Fermenting', fermenting),
+            ('conditioning', 'Conditioning', conditioning),
+            ('ready', 'Ready', ready),
+        ],
         'fermenting': fermenting,
         'conditioning': conditioning,
         'ready': ready,

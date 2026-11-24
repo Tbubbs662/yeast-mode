@@ -1278,3 +1278,41 @@ class NewBatchTest(TestCase):
         response = self.client.get(self.reverse('recipe_list'))
         for recipe in (self.ipa, self.stout, self.saison, self.cider):
             self.assertContains(response, f'href="{self.reverse("session_create", args=[recipe.pk])}" class="btn btn-ghost btn-sm card-action ms-auto"')
+
+
+class BoardTabsTest(TestCase):
+    """Markup for the phone board tabs (behaviour lives in board-tabs.js)."""
+
+    def setUp(self):
+        from django.urls import reverse # type: ignore
+        self.url = reverse('dashboard')
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.client.force_login(self.user)
+        recipe = Recipe.objects.create(name='Hazy IPA', owner=self.user)
+        for n, status in enumerate(['fermenting', 'fermenting', 'conditioning', 'archived']):
+            BrewSession.objects.create(recipe=recipe, batch_number=n + 1, status=status, brew_date='2026-11-01')
+
+    def test_tabs_with_counts_control_matching_columns(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, '<div class="board-tabs" role="tablist" aria-label="Batch status" hidden>')
+        for status, label, count in (('fermenting', 'Fermenting', 2), ('conditioning', 'Conditioning', 1), ('ready', 'Ready', 0)):
+            with self.subTest(status=status):
+                self.assertContains(response, f'id="tab-{status}" data-status="{status}"')
+                self.assertContains(response, f'aria-controls="column-{status}"')
+                self.assertContains(response, f'<section class="board-column" id="column-{status}" data-status="{status}"')
+                self.assertRegex(
+                    response.content.decode(),
+                    rf'id="tab-{status}"[^>]*>\s*<span class="dot dot-{status}" aria-hidden="true"></span>{label}\s*<span class="count">{count}</span>',
+                )
+        self.assertNotContains(response, 'id="tab-archived"')
+
+    def test_tab_script_is_loaded_from_static(self):
+        from django.templatetags.static import static # type: ignore
+        response = self.client.get(self.url)
+        self.assertContains(response, f'<script src="{static("brews/js/board-tabs.js")}"></script>')
+
+    def test_no_tabs_without_batches(self):
+        BrewSession.objects.all().delete()
+        response = self.client.get(self.url)
+        self.assertContains(response, 'No batches yet')
+        self.assertNotContains(response, 'role="tablist"')
