@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect # type: ignore
 from django.contrib import messages # type: ignore
 from django.core.paginator import Paginator # type: ignore
 from django.db import transaction # type: ignore
-from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Q # type: ignore
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Max, Prefetch, Q # type: ignore
 from django.db.models.functions import Lower # type: ignore
 from django.templatetags.static import static # type: ignore
 from django.urls import reverse # type: ignore
@@ -189,7 +189,7 @@ def session_create(request, recipe_pk):
             messages.success(request, f'Brew session logged for "{recipe.name}"!')
             return redirect('recipe_detail', pk=recipe.pk)
     else:
-        form = BrewSessionForm()
+        form = BrewSessionForm(initial={'batch_number': recipe.next_batch_number})
     return render(request, 'brews/recipe_form.html', {
         'form': form,
         'title': f'Log Brew Session - {recipe.name}',
@@ -317,3 +317,32 @@ def brew_history(request):
         'brew_type_choices': Recipe.BREW_TYPE_CHOICES,
         'filter_query': params.urlencode(),
     })
+
+
+@login_required
+def batch_new(request):
+    """Pick the recipe for a new batch: recently brewed first, then the rest.
+
+    ?q= filters by name or style for browsers without JavaScript; with it,
+    the page filters as you type.
+    """
+    recipes = Recipe.objects.filter(owner=request.user).annotate(
+        last_brewed=Max('sessions__brew_date'),
+        batch_count=Count('sessions'),
+    )
+    total_count = recipes.count()
+    query = request.GET.get('q', '').strip()
+    if query:
+        recipes = recipes.filter(Q(name__icontains=query) | Q(style__icontains=query))
+    recent = recipes.filter(last_brewed__isnull=False).order_by('-last_brewed', Lower('name'))
+    others = recipes.filter(last_brewed__isnull=True).order_by(Lower('name'))
+    sections = [
+        (title, list(section))
+        for title, section in (('Recently brewed', recent), ('Other recipes', others))
+    ]
+    return render(request, 'brews/batch_new.html', {
+        'sections': [(title, rows) for title, rows in sections if rows],
+        'total_count': total_count,
+        'query': query,
+    })
+

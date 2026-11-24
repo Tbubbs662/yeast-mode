@@ -64,9 +64,12 @@
                     {% if recipe.description %}
                         <p class="card-text small">{{ recipe.description|truncatewords:20 }}</p>
                     {% endif %}
-                    <div class="d-flex gap-3 mt-auto pt-2 small text-muted">
+                    <div class="d-flex align-items-center gap-3 mt-auto pt-2 small text-muted">
                         <span><i class="bi bi-layers me-1"></i>{{ recipe.batch_count }} batch{{ recipe.batch_count|pluralize:"es" }}</span>
                         {% if recipe.abv %}<span><i class="bi bi-droplet-half me-1" aria-hidden="true"></i>{{ recipe.abv }}% ABV</span>{% endif %}
+                        <a href="{% url 'session_create' recipe.pk %}" class="btn btn-ghost btn-sm card-action ms-auto">
+                            <i class="bi bi-plus-lg" aria-hidden="true"></i> Log batch
+                        </a>
                     </div>
                 </div>
             </article>
