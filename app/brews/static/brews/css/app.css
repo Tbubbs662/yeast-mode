@@ -97,6 +97,17 @@ h1, h2, h3, h4, h5 {
     background: var(--ym-surface-2);
 }
 
+/* Log out is a form button; make it look and line up like the nav links. */
+.nav-logout {
+    display: flex;
+    margin: 0;
+}
+
+.nav-logout .nav-link {
+    width: 100%;
+    text-align: start;
+}
+
 /* --------------------------------------------------------------------------
    Page header
    -------------------------------------------------------------------------- */
