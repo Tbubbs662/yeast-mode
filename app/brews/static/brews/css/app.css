@@ -931,3 +931,16 @@ body > main {
         text-align: left;
     }
 }
+
+/* A button inside a card whose title is a stretched link: lift it above the
+   link so it gets its own clicks. */
+.card-action {
+    position: relative;
+    z-index: 2;
+}
+
+/* li[hidden] needs this because .card sets display. */
+.history-list > li[hidden],
+.picker-section[hidden] {
+    display: none;
+}

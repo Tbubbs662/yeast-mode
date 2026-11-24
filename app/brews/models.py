@@ -84,6 +84,12 @@ class Recipe(models.Model):
         return f"{amount} pack" if self.yeast_amount == 1 else f"{amount} packs"
 
     @property
+    def next_batch_number(self):
+        """One more than the highest batch number logged for this recipe."""
+        highest = self.sessions.aggregate(models.Max('batch_number'))['batch_number__max']
+        return (highest or 0) + 1
+
+    @property
     def abv(self):
         if self.target_gravity and self.target_final_gravity:
             return round((float(self.target_gravity) - float(self.target_final_gravity)) * 131.25, 2)

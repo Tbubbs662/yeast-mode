@@ -1195,3 +1195,86 @@ class SettingsSafetyTest(TestCase):
         result = self.load_settings(DEBUG='False', SECRET_KEY='a-real-production-secret')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('DEBUG=False KEY=a-real-production-secret', result.stdout)
+
+
+class NewBatchTest(TestCase):
+    """The New Batch recipe picker, next batch number default and Log batch buttons."""
+
+    def setUp(self):
+        from django.urls import reverse # type: ignore
+        self.reverse = reverse
+        self.url = reverse('batch_new')
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.client.force_login(self.user)
+        make = lambda name, **kw: Recipe.objects.create(owner=self.user, name=name, **kw)
+        self.ipa = make('Hazy IPA', style='NEIPA')
+        self.stout = make('Oatmeal Stout', style='Stout')
+        self.saison = make('saison', style='Farmhouse')
+        self.cider = make('Apple Cider')
+        BrewSession.objects.create(recipe=self.ipa, batch_number=1, brew_date='2026-03-01')
+        BrewSession.objects.create(recipe=self.ipa, batch_number=4, brew_date='2026-05-01')
+        BrewSession.objects.create(recipe=self.stout, batch_number=1, brew_date='2026-09-01')
+
+        other = User.objects.create_user(username='other', password='other-pass-123')
+        Recipe.objects.create(owner=other, name='Not Mine')
+
+    def sections(self, **params):
+        response = self.client.get(self.url, params)
+        self.assertEqual(response.status_code, 200)
+        return [(title, [r.name for r in rows]) for title, rows in response.context['sections']]
+
+    def test_recent_first_then_alphabetical(self):
+        self.assertEqual(self.sections(), [
+            ('Recently brewed', ['Oatmeal Stout', 'Hazy IPA']),
+            ('Other recipes', ['Apple Cider', 'saison']),
+        ])
+
+    def test_rows_link_to_logging_a_session(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, f'href="{self.reverse("session_create", args=[self.ipa.pk])}"')
+        self.assertContains(response, 'Last brewed May 1, 2026')
+        self.assertContains(response, '2 batches')
+        self.assertContains(response, 'Not brewed yet')
+        self.assertNotContains(response, 'Not Mine')
+
+    def test_search_filters_name_and_style(self):
+        self.assertEqual(self.sections(q='stout'), [('Recently brewed', ['Oatmeal Stout'])])
+        self.assertEqual(self.sections(q='farmhouse'), [('Other recipes', ['saison'])])
+        response = self.client.get(self.url, {'q': 'lager'})
+        self.assertEqual(response.context['sections'], [])
+        self.assertContains(response, 'No matching recipes')
+        self.assertNotContains(response, 'id="picker-empty" hidden')
+
+    def test_no_recipes_prompts_to_create_one(self):
+        Recipe.objects.filter(owner=self.user).delete()
+        response = self.client.get(self.url)
+        self.assertContains(response, 'No recipes yet')
+        self.assertContains(response, f'href="{self.reverse("recipe_create")}"')
+
+    def test_requires_login(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_dashboard_new_batch_opens_picker(self):
+        response = self.client.get(self.reverse('dashboard'))
+        self.assertContains(response, f'<a href="{self.url}" class="btn btn-primary">')
+
+    def test_next_batch_number_default(self):
+        cases = [(self.ipa, 5), (self.stout, 2), (self.cider, 1)]
+        for recipe, expected in cases:
+            with self.subTest(recipe=recipe.name):
+                self.assertEqual(recipe.next_batch_number, expected)
+                response = self.client.get(self.reverse('session_create', args=[recipe.pk]))
+                self.assertEqual(response.context['form'].initial['batch_number'], expected)
+                self.assertContains(response, f'value="{expected}"')
+
+    def test_batch_number_can_still_be_changed(self):
+        self.client.post(self.reverse('session_create', args=[self.cider.pk]), {
+            'batch_number': 7, 'status': 'fermenting', 'brew_date': '2026-11-01',
+        })
+        self.assertEqual(self.cider.sessions.get().batch_number, 7)
+
+    def test_recipe_cards_have_log_batch_button(self):
+        response = self.client.get(self.reverse('recipe_list'))
+        for recipe in (self.ipa, self.stout, self.saison, self.cider):
+            self.assertContains(response, f'href="{self.reverse("session_create", args=[recipe.pk])}" class="btn btn-ghost btn-sm card-action ms-auto"')
