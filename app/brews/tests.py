@@ -1143,3 +1143,55 @@ class LogoutTest(TestCase):
         client.force_login(self.user)
         self.assertEqual(client.post(self.reverse('logout')).status_code, 403)
         self.assertIn('_auth_user_id', client.session)
+
+
+class SettingsSafetyTest(TestCase):
+    """settings.py fails safe when DEBUG or SECRET_KEY aren't set.
+
+    Each case imports the settings in a fresh Python process with a controlled
+    environment, since settings are read once at startup.
+    """
+
+    def load_settings(self, **env):
+        import os
+        import subprocess
+        import sys
+        from django.conf import settings # type: ignore
+        base_env = {
+            key: value for key, value in os.environ.items()
+            if key not in ('DEBUG', 'SECRET_KEY')
+        }
+        base_env.update(env)
+        return subprocess.run(
+            [sys.executable, '-c',
+             'import yeastmode.settings as s; print(f"DEBUG={s.DEBUG} KEY={s.SECRET_KEY}")'],
+            cwd=settings.BASE_DIR, env=base_env, capture_output=True, text=True,
+        )
+
+    def test_debug_defaults_to_off(self):
+        result = self.load_settings(SECRET_KEY='a-real-production-secret')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('DEBUG=False', result.stdout)
+
+    def test_production_requires_a_secret_key(self):
+        for env in ({}, {'DEBUG': 'False'}, {'DEBUG': 'False', 'SECRET_KEY': '   '}):
+            with self.subTest(env=env):
+                result = self.load_settings(**env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('ImproperlyConfigured', result.stderr)
+                self.assertIn('Set the SECRET_KEY environment variable', result.stderr)
+
+    def test_production_rejects_the_public_dev_key(self):
+        result = self.load_settings(DEBUG='False', SECRET_KEY='dev-secret-key-change-in-production')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('ImproperlyConfigured', result.stderr)
+
+    def test_development_may_use_the_dev_key(self):
+        result = self.load_settings(DEBUG='True')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('DEBUG=True KEY=dev-secret-key-change-in-production', result.stdout)
+
+    def test_production_uses_the_given_key(self):
+        result = self.load_settings(DEBUG='False', SECRET_KEY='a-real-production-secret')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('DEBUG=False KEY=a-real-production-secret', result.stdout)
