@@ -11,6 +11,8 @@ from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeH
 from django.contrib.auth.forms import UserCreationForm # type: ignore
 from django.contrib.auth import login # type: ignore
 from django.contrib.auth.decorators import login_required # type: ignore
+from django.http import HttpResponseBadRequest # type: ignore
+from django.views.decorators.http import require_POST # type: ignore
 
 def favicon(request):
     # Built per request: the production manifest storage can't resolve
@@ -216,6 +218,23 @@ def session_delete(request, pk):
         return redirect('recipe_detail', recipe_pk)
     else:
         return render(request, 'brews/session_confirm_delete.html', {'session': session})
+
+@login_required
+@require_POST
+def session_status(request, pk):
+    """Move a batch to another status (the board's "Move to …" action)."""
+    session = get_object_or_404(BrewSession, pk=pk, recipe__owner=request.user)
+    status = request.POST.get('status')
+    if status not in dict(BrewSession.STATUS_CHOICES):
+        return HttpResponseBadRequest('Unknown status.')
+    if status != session.status:
+        session.status = status
+        session.save()
+        messages.success(
+            request,
+            f'{session.recipe.name} batch {session.batch_number} moved to {session.get_status_display()}.',
+        )
+    return redirect('dashboard')
 
 @login_required
 def session_detail(request, pk):

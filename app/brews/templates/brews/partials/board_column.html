@@ -6,14 +6,46 @@
     {% for session in sessions %}
         <article class="card brew-card card-link-wrap">
             <div class="card-body">
-                <h3 class="card-title">
-                    <a href="{% url 'session_detail' session.pk %}" class="stretched-link">{{ session.recipe.name }}</a>
-                </h3>
-                <div class="meta mb-2">Batch #{{ session.batch_number }}{% if session.recipe.style %} · {{ session.recipe.style }}{% endif %}</div>
-                <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <h3 class="card-title">
+                        <a href="{% url 'session_detail' session.pk %}" class="stretched-link">{{ session.recipe.name }}</a>
+                    </h3>
                     <span class="pill pill-type">{{ session.recipe.get_brew_type_display }}</span>
-                    <span class="meta"><i class="bi bi-calendar3"></i>{{ session.brew_date|date:"M j" }}</span>
                 </div>
+                <div class="meta mb-2">Batch #{{ session.batch_number }}{% if session.recipe.style %} · {{ session.recipe.style }}{% endif %}</div>
+
+                <div class="meta" title="Brewed {{ session.brew_date|date:'l, F j, Y' }}">
+                    <i class="bi bi-calendar3" aria-hidden="true"></i>
+                    {% with day=session.brew_day %}
+                        {% if day > 0 %}<strong class="brew-day">Day {{ day }}</strong>
+                        {% elif day == 0 %}<strong class="brew-day">Brew day</strong>
+                        {% else %}Brewing {{ session.brew_date|date:"M j" }}{% endif %}
+                    {% endwith %}
+                    {% if session.status != 'fermenting' and session.status != 'archived' %}
+                        <span title="{{ session.get_status_display }} since {{ session.status_changed_at|date:'F j, Y' }}">
+                            · {{ session.status_days }}d {{ session.get_status_display|lower }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                {% if session.original_gravity or session.abv %}
+                <div class="meta mt-1">
+                    <i class="bi bi-droplet-half" aria-hidden="true"></i>
+                    {% if session.original_gravity %}OG {{ session.original_gravity }}{% endif %}
+                    {% if session.original_gravity and session.abv %} · {% endif %}
+                    {% if session.abv %}{{ session.abv }}% ABV{% endif %}
+                </div>
+                {% endif %}
+
+                {% if session.next_status %}
+                <form method="post" action="{% url 'session_status' session.pk %}" class="brew-card-actions">
+                    {% csrf_token %}
+                    <input type="hidden" name="status" value="{{ session.next_status }}">
+                    <button type="submit" class="btn btn-ghost btn-sm">
+                        Move to {{ session.next_status_label }} <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                    </button>
+                </form>
+                {% endif %}
             </div>
         </article>
     {% empty %}

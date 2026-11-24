@@ -24,16 +24,6 @@ class AttentionItem:
         return self.days // 7
 
 
-def days_fermenting(session, today):
-    # Fermentation starts on brew day, which also covers batches that were
-    # logged after the fact.
-    return (today - session.brew_date).days
-
-
-def days_in_status(session, today):
-    return (today - timezone.localdate(session.status_changed_at)).days
-
-
 def needs_attention(sessions, today=None):
     """Attention items for the given sessions, longest-waiting first.
 
@@ -44,11 +34,13 @@ def needs_attention(sessions, today=None):
     items = []
     for session in sessions:
         if session.status == BrewSession.FERMENTING:
-            days = days_fermenting(session, today)
+            # Fermentation starts on brew day, which also covers batches
+            # that were logged after the fact.
+            days = session.days_since_brewed(today)
             if days >= FERMENTING_CHECK_DAYS:
                 items.append(AttentionItem(session, CHECK_GRAVITY, days))
         elif session.status == BrewSession.CONDITIONING:
-            days = days_in_status(session, today)
+            days = session.days_in_status(today)
             if days >= CONDITIONING_READY_DAYS:
                 items.append(AttentionItem(session, PROBABLY_READY, days))
     items.sort(key=lambda item: item.days, reverse=True)

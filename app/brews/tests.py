@@ -887,3 +887,117 @@ class NeedsAttentionTest(TestCase):
         response = self.client.get('/dashboard/')
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'Needs attention')
+
+
+class BrewCardTest(TestCase):
+    """Day counts, next status, the "Move to" action and the board cards."""
+
+    def setUp(self):
+        import datetime
+        from django.urls import reverse # type: ignore
+        from django.utils import timezone # type: ignore
+        self.reverse = reverse
+        self.today = timezone.localdate()
+        self.days_ago = lambda n: self.today - datetime.timedelta(days=n)
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.recipe = Recipe.objects.create(name='Hazy IPA', style='NEIPA', owner=self.user)
+        self.client.force_login(self.user)
+
+    def make(self, status='fermenting', brewed_days_ago=9, **fields):
+        session = BrewSession.objects.create(
+            recipe=self.recipe, status=status, brew_date=self.days_ago(brewed_days_ago), **fields,
+        )
+        session.refresh_from_db()
+        return session
+
+    def test_day_counts(self):
+        import datetime
+        from django.utils import timezone # type: ignore
+        session = self.make(brewed_days_ago=9)
+        self.assertEqual(session.days_since_brewed(self.today), 9)
+        self.assertEqual(session.brew_day, 9)
+        self.assertEqual(self.make(brewed_days_ago=0).brew_day, 0)
+        self.assertEqual(self.make(brewed_days_ago=-3).brew_day, -3)
+
+        changed = timezone.now() - datetime.timedelta(days=5)
+        BrewSession.objects.filter(pk=session.pk).update(status_changed_at=changed)
+        session.refresh_from_db()
+        self.assertEqual(session.status_days, 5)
+
+    def test_next_status(self):
+        expected = [
+            ('fermenting', 'conditioning', 'Conditioning'),
+            ('conditioning', 'ready', 'Ready'),
+            ('ready', 'archived', 'Archived'),
+            ('archived', None, ''),
+        ]
+        for status, next_status, label in expected:
+            with self.subTest(status=status):
+                session = BrewSession(status=status)
+                self.assertEqual(session.next_status, next_status)
+                self.assertEqual(session.next_status_label, label)
+
+    def test_card_content(self):
+        self.make(brewed_days_ago=9, original_gravity='1.065', final_gravity='1.012')
+        response = self.client.get(self.reverse('dashboard'))
+        self.assertContains(response, '<strong class="brew-day">Day 9</strong>', html=True)
+        self.assertContains(response, f'title="Brewed {self.days_ago(9).strftime("%A, %B")}')
+        self.assertContains(response, 'OG 1.065')
+        self.assertContains(response, '6.96% ABV')
+        self.assertContains(response, 'Move to Conditioning')
+
+    def test_card_leaves_out_missing_data(self):
+        self.make(status='archived', brewed_days_ago=0)
+        response = self.client.get(self.reverse('dashboard'))
+        self.assertContains(response, 'Brew day')
+        self.assertNotContains(response, 'OG ')
+        self.assertNotContains(response, 'Move to')
+
+    def test_days_in_status_shown_after_fermenting(self):
+        self.make(status='conditioning', brewed_days_ago=30)
+        response = self.client.get(self.reverse('dashboard'))
+        self.assertContains(response, '0d conditioning')
+
+    def test_move_to_next_status(self):
+        session = self.make()
+        response = self.client.post(self.reverse('session_status', args=[session.pk]), {'status': 'conditioning'})
+        self.assertRedirects(response, self.reverse('dashboard'))
+        session.refresh_from_db()
+        self.assertEqual(session.status, 'conditioning')
+
+    def test_move_rejects_bad_requests(self):
+        session = self.make()
+        url = self.reverse('session_status', args=[session.pk])
+        self.assertEqual(self.client.get(url).status_code, 405)
+        self.assertEqual(self.client.post(url, {'status': 'bottled'}).status_code, 400)
+        self.assertEqual(self.client.post(url, {}).status_code, 400)
+
+        other = User.objects.create_user(username='other', password='other-pass-123')
+        self.client.force_login(other)
+        self.assertEqual(self.client.post(url, {'status': 'ready'}).status_code, 404)
+
+        session.refresh_from_db()
+        self.assertEqual(session.status, 'fermenting')
+
+    def test_move_requires_login(self):
+        session = self.make()
+        self.client.logout()
+        response = self.client.post(self.reverse('session_status', args=[session.pk]), {'status': 'ready'})
+        self.assertEqual(response.status_code, 302)
+        session.refresh_from_db()
+        self.assertEqual(session.status, 'fermenting')
+
+    def test_dashboard_query_count_does_not_grow_with_batches(self):
+        def count_queries():
+            with CaptureQueriesContext(connection) as ctx:
+                self.assertEqual(self.client.get(self.reverse('dashboard')).status_code, 200)
+            return len(ctx)
+
+        for status in ('fermenting', 'conditioning', 'ready', 'archived'):
+            self.make(status=status)
+        baseline = count_queries()
+        for status in ('fermenting', 'conditioning', 'ready', 'archived'):
+            other = Recipe.objects.create(name=f'Other {status}', owner=self.user)
+            for n in range(3):
+                BrewSession.objects.create(recipe=other, status=status, brew_date=self.today, batch_number=n + 1)
+        self.assertEqual(count_queries(), baseline)
