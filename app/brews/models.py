@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.contrib.auth.models import User # type: ignore
 from django.core.validators import MinValueValidator # type: ignore
+from django.utils import timezone # type: ignore
 
 class Hop(models.Model):
     name = models.CharField(max_length=200, unique=True)
@@ -220,6 +221,20 @@ class BrewSession(models.Model):
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # When the batch entered its current status. Kept up to date by save().
+    status_changed_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None:
+            stored_status = (
+                BrewSession.objects.filter(pk=self.pk).values_list('status', flat=True).first()
+            )
+            if stored_status is not None and stored_status != self.status:
+                self.status_changed_at = timezone.now()
+                update_fields = kwargs.get('update_fields')
+                if update_fields is not None and 'status_changed_at' not in update_fields:
+                    kwargs['update_fields'] = [*update_fields, 'status_changed_at']
+        super().save(*args, **kwargs)
 
     @property
     def abv(self):

@@ -23,6 +23,29 @@
         </a>
     </div>
 {% else %}
+    {% if attention %}
+    <section class="card attention-card mb-4" aria-labelledby="attention-title">
+        <div class="card-body">
+            <h2 class="section-title mb-2" id="attention-title"><i class="bi bi-bell me-2" aria-hidden="true"></i>Needs attention</h2>
+            <ul class="attention-list">
+                {% for item in attention %}
+                <li>
+                    <span class="dot dot-{{ item.session.status }}" aria-hidden="true"></span>
+                    <span>
+                        <a href="{% url 'session_detail' item.session.pk %}">{{ item.session.recipe.name }}, Batch #{{ item.session.batch_number }}</a>:
+                        {% if item.kind == 'check_gravity' %}
+                            <strong>day {{ item.days }}</strong> of fermentation. Check gravity?
+                        {% elif item.kind == 'probably_ready' %}
+                            conditioning for {{ item.weeks }} week{{ item.weeks|pluralize }}. <strong>Probably ready.</strong>
+                        {% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+
     <div class="row g-3 mb-4">
         <div class="col-lg-7">
             <div class="card chart-card h-100">
