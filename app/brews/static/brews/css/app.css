@@ -771,3 +771,32 @@ body > main {
 .text-accent {
     color: var(--ym-accent);
 }
+
+/* --------------------------------------------------------------------------
+   Dashboard "Needs attention" strip
+   -------------------------------------------------------------------------- */
+.attention-card {
+    border-left: 3px solid var(--ym-accent);
+}
+
+.attention-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.attention-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+}
+
+.attention-list .dot {
+    flex: none;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+}

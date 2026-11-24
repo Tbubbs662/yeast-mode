@@ -740,3 +740,150 @@ class SiteChromeTest(TestCase):
         for path in ('favicon.svg', 'favicon-32.png', 'favicon.ico', 'apple-touch-icon.png'):
             with self.subTest(file=path):
                 self.assertIsNotNone(finders.find(f'brews/img/{path}'))
+
+
+class StatusChangedAtTest(TestCase):
+    """BrewSession.status_changed_at follows status changes and nothing else."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.recipe = Recipe.objects.create(name='Saison', brew_type='beer', owner=self.user)
+        self.session = BrewSession.objects.create(
+            recipe=self.recipe, batch_number=1, status='fermenting', brew_date='2026-07-14',
+        )
+
+    def backdate(self):
+        from django.utils import timezone # type: ignore
+        import datetime
+        past = timezone.now() - datetime.timedelta(days=30)
+        BrewSession.objects.filter(pk=self.session.pk).update(status_changed_at=past)
+        self.session.refresh_from_db()
+        return past
+
+    def test_set_on_create(self):
+        self.assertIsNotNone(self.session.status_changed_at)
+
+    def test_changing_status_updates_it(self):
+        past = self.backdate()
+        self.session.status = 'conditioning'
+        self.session.save()
+        self.session.refresh_from_db()
+        self.assertGreater(self.session.status_changed_at, past)
+
+    def test_editing_other_fields_leaves_it(self):
+        past = self.backdate()
+        self.session.notes = 'Smells great'
+        self.session.original_gravity = Decimal('1.060')
+        self.session.save()
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.status_changed_at, past)
+
+    def test_update_fields_status_also_saves_timestamp(self):
+        past = self.backdate()
+        self.session.status = 'ready'
+        self.session.save(update_fields=['status'])
+        self.session.refresh_from_db()
+        self.assertGreater(self.session.status_changed_at, past)
+
+    def test_edit_form_status_change_updates_it(self):
+        past = self.backdate()
+        self.client.force_login(self.user)
+        self.client.post(f'/session/{self.session.pk}/edit/', {
+            'batch_number': 1, 'status': 'conditioning', 'brew_date': '2026-07-14',
+        })
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.status, 'conditioning')
+        self.assertGreater(self.session.status_changed_at, past)
+
+
+class StatusChangedAtBackfillTest(TestCase):
+    """The 0008 data migration's best guesses for existing batches."""
+
+    def test_backfill(self):
+        import datetime
+        from django.utils import timezone # type: ignore
+        migration = importlib.import_module('brews.migrations.0008_brewsession_status_changed_at')
+        user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        recipe = Recipe.objects.create(name='Saison', owner=user)
+        fermenting = BrewSession.objects.create(recipe=recipe, status='fermenting', brew_date='2026-07-14')
+        ready = BrewSession.objects.create(recipe=recipe, status='ready', brew_date='2026-07-14')
+
+        migration.backfill_status_changed_at(django_apps, None)
+
+        fermenting.refresh_from_db()
+        ready.refresh_from_db()
+        self.assertEqual(fermenting.status_changed_at,
+                         datetime.datetime(2026, 7, 14, tzinfo=timezone.get_current_timezone()))
+        self.assertEqual(ready.status_changed_at, ready.updated_at)
+
+
+class NeedsAttentionTest(TestCase):
+    """The dashboard's attention rules and the strip that shows them."""
+
+    def setUp(self):
+        import datetime
+        from django.utils import timezone # type: ignore
+        self.today = timezone.localdate()
+        self.days_ago = lambda n: self.today - datetime.timedelta(days=n)
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.recipe = Recipe.objects.create(name='Hazy IPA', owner=self.user)
+
+    def make(self, status, brewed_days_ago, status_days_ago=None):
+        import datetime
+        from django.utils import timezone # type: ignore
+        session = BrewSession.objects.create(
+            recipe=self.recipe, status=status, brew_date=self.days_ago(brewed_days_ago),
+        )
+        if status_days_ago is not None:
+            changed = datetime.datetime.combine(
+                self.days_ago(status_days_ago), datetime.time(12), tzinfo=timezone.get_current_timezone(),
+            )
+            BrewSession.objects.filter(pk=session.pk).update(status_changed_at=changed)
+            session.refresh_from_db()
+        return session
+
+    def attention(self, *sessions):
+        from brews.attention import needs_attention # type: ignore
+        return [(item.session, item.kind, item.days) for item in needs_attention(sessions, today=self.today)]
+
+    def test_fermenting_threshold(self):
+        early = self.make('fermenting', 13)
+        due = self.make('fermenting', 14)
+        self.assertEqual(self.attention(early, due), [(due, 'check_gravity', 14)])
+
+    def test_fermenting_counts_from_brew_day_even_if_logged_later(self):
+        logged_late = self.make('fermenting', 20)  # status_changed_at is "now"
+        self.assertEqual(self.attention(logged_late), [(logged_late, 'check_gravity', 20)])
+
+    def test_conditioning_threshold_uses_status_change(self):
+        early = self.make('conditioning', 60, status_days_ago=20)
+        due = self.make('conditioning', 60, status_days_ago=21)
+        self.assertEqual(self.attention(early, due), [(due, 'probably_ready', 21)])
+
+    def test_ready_and_archived_never_flagged(self):
+        self.assertEqual(self.attention(
+            self.make('ready', 90, status_days_ago=60),
+            self.make('archived', 90, status_days_ago=60),
+        ), [])
+
+    def test_longest_waiting_first(self):
+        a = self.make('fermenting', 15)
+        b = self.make('conditioning', 60, status_days_ago=30)
+        c = self.make('fermenting', 20)
+        self.assertEqual([s for s, _, _ in self.attention(a, b, c)], [b, c, a])
+
+    def test_dashboard_strip(self):
+        self.make('fermenting', 14)
+        self.make('conditioning', 60, status_days_ago=22)
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+        self.assertContains(response, 'Needs attention')
+        self.assertContains(response, '<strong>day 14</strong> of fermentation')
+        self.assertContains(response, 'conditioning for 3 weeks')
+
+    def test_dashboard_hides_strip_when_nothing_needs_attention(self):
+        self.make('fermenting', 2)
+        self.client.force_login(self.user)
+        response = self.client.get('/dashboard/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Needs attention')

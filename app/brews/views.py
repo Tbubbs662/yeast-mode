@@ -5,6 +5,7 @@ from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch
 from django.db.models.functions import Lower # type: ignore
 from django.templatetags.static import static # type: ignore
 from django.urls import reverse # type: ignore
+from .attention import needs_attention
 from .models import BrewSession, Recipe, RecipeAdjunct, RecipeGrain, RecipeHop
 from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeHopFormSet, BrewSessionForm
 from django.contrib.auth.forms import UserCreationForm # type: ignore
@@ -223,15 +224,17 @@ def session_detail(request, pk):
 
 @login_required
 def dashboard(request):
-    fermenting = BrewSession.objects.filter(status='fermenting').filter(recipe__owner=request.user).order_by('-brew_date')
-    conditioning = BrewSession.objects.filter(status='conditioning').filter(recipe__owner=request.user).order_by('-brew_date')
-    ready = BrewSession.objects.filter(status='ready').filter(recipe__owner=request.user).order_by('-brew_date')
-    archived = BrewSession.objects.filter(status='archived').filter(recipe__owner=request.user).order_by('-brew_date')
+    sessions = BrewSession.objects.filter(recipe__owner=request.user).select_related('recipe').order_by('-brew_date')
+    fermenting = list(sessions.filter(status='fermenting'))
+    conditioning = list(sessions.filter(status='conditioning'))
+    ready = sessions.filter(status='ready')
+    archived = sessions.filter(status='archived')
     beer_count = Recipe.objects.filter(owner=request.user, brew_type='beer').count()
     mead_count = Recipe.objects.filter(owner=request.user, brew_type='mead').count()
     cider_count = Recipe.objects.filter(owner=request.user, brew_type='cider').count()
     other_count = Recipe.objects.filter(owner=request.user, brew_type='other').count()
     return render(request, 'brews/dashboard.html', {
+        'attention': needs_attention(fermenting + conditioning),
         'fermenting': fermenting,
         'conditioning': conditioning,
         'ready': ready,
