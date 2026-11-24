@@ -9,6 +9,7 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='brews/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('history/', views.brew_history, name='brew_history'),
     path('recipes/', views.recipe_list, name='recipe_list'),
     path('recipe/<int:pk>/', views.recipe_detail, name='recipe_detail'),
     path('recipe/new/', views.recipe_create, name='recipe_create'),

@@ -947,11 +947,11 @@ class BrewCardTest(TestCase):
         self.assertContains(response, 'Move to Conditioning')
 
     def test_card_leaves_out_missing_data(self):
-        self.make(status='archived', brewed_days_ago=0)
+        self.make(status='fermenting', brewed_days_ago=0)
         response = self.client.get(self.reverse('dashboard'))
         self.assertContains(response, 'Brew day')
         self.assertNotContains(response, 'OG ')
-        self.assertNotContains(response, 'Move to')
+        self.assertNotContains(response, '% ABV')
 
     def test_days_in_status_shown_after_fermenting(self):
         self.make(status='conditioning', brewed_days_ago=30)
@@ -1001,3 +1001,101 @@ class BrewCardTest(TestCase):
             for n in range(3):
                 BrewSession.objects.create(recipe=other, status=status, brew_date=self.today, batch_number=n + 1)
         self.assertEqual(count_queries(), baseline)
+
+
+class BrewHistoryTest(TestCase):
+    """The brew history page and the dashboard's archived link."""
+
+    def setUp(self):
+        import datetime
+        from django.urls import reverse # type: ignore
+        self.url = reverse('brew_history')
+        self.dashboard = reverse('dashboard')
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.client.force_login(self.user)
+        self.ipa = Recipe.objects.create(name='Hazy IPA', brew_type='beer', owner=self.user)
+        self.mead = Recipe.objects.create(name='Orange Blossom', brew_type='mead', owner=self.user)
+        make = lambda recipe, n, status, date: BrewSession.objects.create(
+            recipe=recipe, batch_number=n, status=status, brew_date=date)
+        self.ipa1 = make(self.ipa, 1, 'archived', datetime.date(2025, 3, 1))
+        self.ipa2 = make(self.ipa, 2, 'ready', datetime.date(2026, 6, 1))
+        self.mead1 = make(self.mead, 1, 'archived', datetime.date(2026, 1, 15))
+        self.ipa3 = make(self.ipa, 3, 'fermenting', datetime.date(2026, 11, 1))
+
+        other = User.objects.create_user(username='other', password='other-pass-123')
+        theirs = Recipe.objects.create(name='Hazy IPA', owner=other)
+        make(theirs, 1, 'archived', datetime.date(2024, 5, 5))
+
+    def batches(self, **params):
+        response = self.client.get(self.url, params)
+        self.assertEqual(response.status_code, 200)
+        return list(response.context['page'].object_list)
+
+    def test_lists_only_own_batches_newest_first(self):
+        self.assertEqual(self.batches(), [self.ipa3, self.ipa2, self.mead1, self.ipa1])
+
+    def test_filters(self):
+        self.assertEqual(self.batches(q='hazy'), [self.ipa3, self.ipa2, self.ipa1])
+        self.assertEqual(self.batches(status='archived'), [self.mead1, self.ipa1])
+        self.assertEqual(self.batches(type='mead'), [self.mead1])
+        self.assertEqual(self.batches(year='2025'), [self.ipa1])
+        self.assertEqual(self.batches(q='hazy', status='archived', year='2025'), [self.ipa1])
+
+    def test_unknown_filter_values_are_ignored(self):
+        response = self.client.get(self.url, {'status': 'bottled', 'type': 'wine', 'year': '2024'})
+        self.assertEqual(len(response.context['page'].object_list), 4)
+        self.assertFalse(response.context['is_filtered'])
+
+    def test_year_options_are_own_brewing_years(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.context['years'], [2026, 2025])
+
+    def test_pagination_keeps_filters(self):
+        from brews import views # type: ignore
+        for n in range(views.HISTORY_PAGE_SIZE):
+            BrewSession.objects.create(recipe=self.ipa, batch_number=10 + n, status='archived', brew_date='2026-02-01')
+        response = self.client.get(self.url, {'status': 'archived'})
+        page = response.context['page']
+        self.assertEqual(page.paginator.count, views.HISTORY_PAGE_SIZE + 2)
+        self.assertEqual(len(page.object_list), views.HISTORY_PAGE_SIZE)
+        self.assertContains(response, 'href="?status=archived&amp;page=2"')
+
+        response = self.client.get(self.url, {'status': 'archived', 'page': 2})
+        self.assertEqual(list(response.context['page'].object_list), [self.mead1, self.ipa1])
+        self.assertContains(response, 'href="?status=archived&amp;page=1"')
+
+        # An out-of-range page shows the last page instead of an error.
+        response = self.client.get(self.url, {'page': 99})
+        self.assertEqual(response.status_code, 200)
+
+    def test_no_matches_and_empty_states(self):
+        response = self.client.get(self.url, {'q': 'lager'})
+        self.assertContains(response, 'No matching batches')
+
+        newbie = User.objects.create_user(username='newbie', password='newbie-pass-123')
+        self.client.force_login(newbie)
+        response = self.client.get(self.url)
+        self.assertContains(response, 'No batches yet')
+        self.assertNotContains(response, 'id="history-filters"')
+
+    def test_requires_login(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_dashboard_folds_archived_into_link(self):
+        response = self.client.get(self.dashboard)
+        self.assertNotContains(response, 'label="Archived"')
+        self.assertNotContains(response, '<span class="dot dot-archived"></span>Archived', html=True)
+        self.assertContains(response, f'href="{self.url}?status=archived"')
+        self.assertContains(response, '2 archived batches')
+
+    def test_dashboard_with_only_archived_batches(self):
+        BrewSession.objects.exclude(status='archived').delete()
+        response = self.client.get(self.dashboard)
+        self.assertNotContains(response, 'No batches yet')
+        self.assertContains(response, '2 archived batches')
+
+    def test_navbar_links_to_history(self):
+        response = self.client.get(self.dashboard)
+        self.assertContains(response, f'href="{self.url}"')
+

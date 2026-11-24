@@ -13,7 +13,7 @@
     </a>
 </div>
 
-{% if not fermenting and not conditioning and not ready and not archived %}
+{% if not fermenting and not conditioning and not ready and not archived_count %}
     <div class="empty-state">
         <i class="bi bi-droplet-half"></i>
         <h3 class="mt-3">No batches yet</h3>
@@ -65,13 +65,19 @@
         {% include "brews/partials/board_column.html" with status="fermenting" label="Fermenting" sessions=fermenting %}
         {% include "brews/partials/board_column.html" with status="conditioning" label="Conditioning" sessions=conditioning %}
         {% include "brews/partials/board_column.html" with status="ready" label="Ready" sessions=ready %}
-        {% include "brews/partials/board_column.html" with status="archived" label="Archived" sessions=archived %}
     </div>
+    {% if archived_count %}
+        <p class="board-footer">
+            <a href="{% url 'brew_history' %}?status=archived">
+                {{ archived_count }} archived batch{{ archived_count|pluralize:"es" }} <i class="bi bi-arrow-right" aria-hidden="true"></i>
+            </a>
+        </p>
+    {% endif %}
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if fermenting or conditioning or ready or archived %}
+{% if fermenting or conditioning or ready or archived_count %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
     (function () {
@@ -95,7 +101,7 @@
                 labels: ['Fermenting', 'Conditioning', 'Ready', 'Archived'],
                 datasets: [{
                     label: 'Batches',
-                    data: [{{ fermenting|length }}, {{ conditioning|length }}, {{ ready|length }}, {{ archived|length }}],
+                    data: [{{ fermenting|length }}, {{ conditioning|length }}, {{ ready|length }}, {{ archived_count }}],
                     backgroundColor: statusColors,
                     borderRadius: 6,
                     maxBarThickness: 48,
