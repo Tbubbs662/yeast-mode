@@ -241,6 +241,28 @@ class BrewSession(models.Model):
         if self.original_gravity and self.final_gravity:
             return round((float(self.original_gravity) - float(self.final_gravity)) * 131.25, 2)
         return None
-    
+
+    def days_since_brewed(self, today=None):
+        """0 on brew day; negative for a batch planned in the future."""
+        return ((today or timezone.localdate()) - self.brew_date).days
+
+    def days_in_status(self, today=None):
+        return ((today or timezone.localdate()) - timezone.localdate(self.status_changed_at)).days
+
+    # Template-friendly versions of the above (templates can't pass `today`).
+    brew_day = property(days_since_brewed)
+    status_days = property(days_in_status)
+
+    @property
+    def next_status(self):
+        """The status a batch usually moves to next, or None once archived."""
+        order = [value for value, _ in self.STATUS_CHOICES]
+        index = order.index(self.status)
+        return order[index + 1] if index + 1 < len(order) else None
+
+    @property
+    def next_status_label(self):
+        return dict(self.STATUS_CHOICES).get(self.next_status, '')
+
     def __str__(self):
         return f"{self.recipe.name} - Batch #{self.batch_number}"

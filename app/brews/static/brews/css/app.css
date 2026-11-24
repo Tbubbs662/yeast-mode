@@ -800,3 +800,35 @@ body > main {
     height: 0.55rem;
     border-radius: 50%;
 }
+
+/* --------------------------------------------------------------------------
+   Brew card details and quick actions
+   -------------------------------------------------------------------------- */
+.brew-card .brew-day {
+    color: var(--ym-text);
+    font-weight: 600;
+}
+
+.brew-card-actions {
+    position: relative;
+    z-index: 2; /* above the card's stretched link */
+    margin-top: 0.75rem;
+}
+
+.brew-card-actions .btn {
+    font-size: 0.8rem;
+}
+
+/* With a mouse, actions appear on hover or keyboard focus to keep cards
+   compact. Touch screens can't hover, so they always show them. */
+@media (hover: hover) {
+    .brew-card-actions {
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+
+    .brew-card:hover .brew-card-actions,
+    .brew-card:focus-within .brew-card-actions {
+        opacity: 1;
+    }
+}
