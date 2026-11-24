@@ -1,5 +1,7 @@
 # YeastMode
 
+[![CI](https://github.com/Tbubbs662/yeast-mode/actions/workflows/ci.yml/badge.svg)](https://github.com/Tbubbs662/yeast-mode/actions/workflows/ci.yml)
+
 ### Description
 YeastMode is an app that allows home brewers to track their recipes, brew sessions, and inventory all in one place.
 
