@@ -1099,3 +1099,47 @@ class BrewHistoryTest(TestCase):
         response = self.client.get(self.dashboard)
         self.assertContains(response, f'href="{self.url}"')
 
+
+
+class LogoutTest(TestCase):
+    """Logging out is a POST from the navbar form; a plain GET can't log anyone out."""
+
+    def setUp(self):
+        from django.urls import reverse # type: ignore
+        self.reverse = reverse
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.client.force_login(self.user)
+
+    def is_logged_in(self):
+        return '_auth_user_id' in self.client.session
+
+    def test_post_logs_out_and_goes_to_landing(self):
+        response = self.client.post(self.reverse('logout'))
+        self.assertRedirects(response, self.reverse('landing'))
+        self.assertFalse(self.is_logged_in())
+
+    def test_get_does_not_log_out(self):
+        response = self.client.get(self.reverse('logout'))
+        self.assertEqual(response.status_code, 405)
+        self.assertTrue(self.is_logged_in())
+
+    def test_navbar_uses_a_form_with_csrf_token(self):
+        from django.test import Client # type: ignore
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        response = client.get(self.reverse('dashboard'))
+        self.assertContains(response, f'<form method="post" action="{self.reverse("logout")}" class="nav-logout">')
+        self.assertNotContains(response, f'href="{self.reverse("logout")}"')
+
+        # The token in the form is accepted (cookie + hidden field, as a browser sends it).
+        token = response.context['csrf_token']
+        response = client.post(self.reverse('logout'), {'csrfmiddlewaretoken': str(token)})
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('_auth_user_id', client.session)
+
+    def test_post_without_csrf_token_is_rejected(self):
+        from django.test import Client # type: ignore
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        self.assertEqual(client.post(self.reverse('logout')).status_code, 403)
+        self.assertIn('_auth_user_id', client.session)
