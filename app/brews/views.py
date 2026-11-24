@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect # type: ignore
 from django.contrib import messages # type: ignore
 from django.db import transaction # type: ignore
 from django.db.models import Prefetch # type: ignore
+from django.urls import reverse # type: ignore
 from .models import BrewSession, Recipe, RecipeAdjunct, RecipeGrain, RecipeHop
 from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeHopFormSet, BrewSessionForm
 from django.contrib.auth.forms import UserCreationForm # type: ignore
@@ -51,7 +52,7 @@ INGREDIENT_SECTIONS = [
     ('adjuncts', RecipeAdjunctFormSet, 'Adjuncts', 'Add adjunct', 'Sugars, fruit, spices and other additions.'),
 ]
 
-def recipe_form_view(request, recipe, title, success_message):
+def recipe_form_view(request, recipe, title, success_message, cancel_url):
     """Shared create/edit handling for a recipe and its ingredient formsets."""
     data = request.POST if request.method == 'POST' else None
     form = RecipeForm(data, instance=recipe)
@@ -83,6 +84,7 @@ def recipe_form_view(request, recipe, title, success_message):
         'form': form,
         'ingredient_sections': sections,
         'title': title,
+        'cancel_url': cancel_url,
     })
 
 @login_required
@@ -90,6 +92,7 @@ def recipe_create(request):
     return recipe_form_view(
         request, Recipe(owner=request.user), 'New Recipe',
         'Recipe "{name}" created successfully!',
+        cancel_url=reverse('recipe_list'),
     )
 
 @login_required
@@ -98,6 +101,7 @@ def recipe_edit(request, recipe_pk):
     return recipe_form_view(
         request, recipe, recipe.name,
         'Recipe "{name}" has been updated successfully!',
+        cancel_url=reverse('recipe_detail', args=[recipe.pk]),
     )
 
 @login_required
@@ -123,7 +127,11 @@ def session_create(request, recipe_pk):
             return redirect('recipe_detail', pk=recipe.pk)
     else:
         form = BrewSessionForm()
-    return render(request, 'brews/recipe_form.html', {'form': form, 'title': f'Log Brew Session - {recipe.name}'})
+    return render(request, 'brews/recipe_form.html', {
+        'form': form,
+        'title': f'Log Brew Session - {recipe.name}',
+        'cancel_url': reverse('recipe_detail', args=[recipe.pk]),
+    })
 
 @login_required
 def session_edit(request, pk):
