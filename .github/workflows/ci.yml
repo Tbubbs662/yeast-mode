@@ -60,5 +60,10 @@ jobs:
       - name: Check for missing migrations
         run: python manage.py makemigrations --check --dry-run
 
+      # DEBUG is off here, so pages use the hashed file names that collectstatic
+      # writes. This also catches CSS that points at a missing file.
+      - name: Collect static files
+        run: python manage.py collectstatic --noinput
+
       - name: Run tests
         run: python manage.py test --verbosity 2

@@ -519,3 +519,28 @@ class RecipeDetailIngredientsTest(TestCase):
         with CaptureQueriesContext(connection) as four_each:
             self.client.get(self.url)
         self.assertEqual(len(one_each), len(four_each))
+
+
+class CacheBustingStaticFilesStorageTest(TestCase):
+    """Development static URLs carry the file's modified time so browsers refetch changed files."""
+
+    def setUp(self):
+        from yeastmode.storage import CacheBustingStaticFilesStorage # type: ignore
+        self.storage = CacheBustingStaticFilesStorage()
+
+    def test_url_includes_modified_time(self):
+        from unittest import mock
+        with mock.patch('yeastmode.storage.os.path.getmtime', return_value=1732400000.7):
+            url = self.storage.url('brews/css/app.css')
+        self.assertTrue(url.endswith('brews/css/app.css?v=1732400000'))
+
+    def test_url_changes_when_file_changes(self):
+        from unittest import mock
+        with mock.patch('yeastmode.storage.os.path.getmtime', return_value=1000):
+            before = self.storage.url('brews/css/app.css')
+        with mock.patch('yeastmode.storage.os.path.getmtime', return_value=2000):
+            after = self.storage.url('brews/css/app.css')
+        self.assertNotEqual(before, after)
+
+    def test_missing_file_gets_plain_url(self):
+        self.assertTrue(self.storage.url('brews/css/does-not-exist.css').endswith('brews/css/does-not-exist.css'))

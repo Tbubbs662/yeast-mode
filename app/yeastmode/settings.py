@@ -121,6 +121,22 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Make browsers fetch CSS/JS again whenever the files change.
+# Development adds the file's modified time to each URL (app.css?v=1732400000).
+# Production uses hashed file names (app.3f2a1c9b.css) from `collectstatic`.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': (
+            'yeastmode.storage.CacheBustingStaticFilesStorage' if DEBUG
+            else 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+        ),
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
