@@ -47,20 +47,25 @@
     </section>
     {% endif %}
 
-    <div class="row g-3 mb-4">
-        <div class="col-lg-7">
-            <div class="card chart-card h-100">
-                <div class="card-header pt-3 pb-0 border-0"><h2 class="section-title mb-0">Brews by status</h2></div>
-                <div class="card-body"><canvas id="brewStatusChart"></canvas></div>
-            </div>
+    <section class="stat-grid stat-tiles mb-4" aria-label="Brewing stats">
+        <div class="stat">
+            <span class="stat-label">Batches this year</span>
+            <span class="stat-value">{{ stats.batches_this_year }}</span>
+            <span class="stat-sub">{{ stats.batches_total }} all time</span>
         </div>
-        <div class="col-lg-5">
-            <div class="card chart-card h-100">
-                <div class="card-header pt-3 pb-0 border-0"><h2 class="section-title mb-0">Recipes by type</h2></div>
-                <div class="card-body"><canvas id="brewByType"></canvas></div>
-            </div>
+        {% if stats.average_abv is not None %}
+        <div class="stat">
+            <span class="stat-label">Average ABV</span>
+            <span class="stat-value">{{ stats.average_abv }}%</span>
+            <span class="stat-sub" title="Batches with both original and final gravity">from {{ stats.abv_batch_count }} batch{{ stats.abv_batch_count|pluralize:"es" }}</span>
         </div>
-    </div>
+        {% endif %}
+        <div class="stat">
+            <span class="stat-label">Recipes</span>
+            <span class="stat-value">{{ stats.recipe_count }}</span>
+            <span class="stat-sub">{% for label, count in stats.recipe_types %}{{ count }} {{ label|lower }}{% if not forloop.last %} · {% endif %}{% endfor %}</span>
+        </div>
+    </section>
 
     {# Phone-only tabs, shown once board-tabs.js has run. Each tab carries its status so drag and drop (#56) can use it as a drop target. #}
     <div class="board-tabs" role="tablist" aria-label="Batch status" hidden>
@@ -88,6 +93,35 @@
             </a>
         </p>
     {% endif %}
+
+    <section class="card activity-card mt-4" aria-labelledby="activity-title">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-3">
+                <h2 class="section-title mb-0" id="activity-title">Brewing activity</h2>
+                <span class="text-muted small">Batches per month, last 12 months</span>
+            </div>
+            {% if activity_total %}
+                <div class="activity-chart">
+                    <canvas id="activity-chart" role="img"
+                            aria-label="Bar chart of batches brewed per month: {{ activity_total }} in the last 12 months. Table below."></canvas>
+                </div>
+                <details class="activity-table mt-2">
+                    <summary>Show as table</summary>
+                    <table class="table table-sm mt-2 mb-0">
+                        <thead><tr><th scope="col">Month</th><th scope="col" class="text-end">Batches</th></tr></thead>
+                        <tbody>
+                            {% for month, count in activity %}
+                            <tr><td>{{ month|date:"F Y" }}</td><td class="text-end">{{ count }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </details>
+                {{ activity_chart|json_script:"activity-data" }}
+            {% else %}
+                <p class="text-muted mb-0">No batches brewed in the last 12 months.</p>
+            {% endif %}
+        </div>
+    </section>
 {% endif %}
 {% endblock %}
 
@@ -99,62 +133,8 @@
         crossorigin="anonymous"></script>
 <script src="{% static 'brews/js/board-drag.js' %}"></script>
 {% endif %}
-{% if fermenting or conditioning or ready or archived_count %}
+{% if activity_total %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script>
-    (function () {
-        const css = getComputedStyle(document.documentElement);
-        const v = (name) => css.getPropertyValue(name).trim();
-        const statusColors = [v('--ym-fermenting'), v('--ym-conditioning'), v('--ym-ready'), v('--ym-archived')];
-        const typeColors = [v('--ym-accent'), '#c084fc', v('--ym-ready'), v('--ym-archived')];
-
-        Chart.defaults.color = v('--ym-muted');
-        Chart.defaults.borderColor = v('--ym-border');
-        Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
-        Chart.defaults.maintainAspectRatio = false;
-        Chart.defaults.plugins.tooltip.backgroundColor = v('--ym-surface-2');
-        Chart.defaults.plugins.tooltip.borderColor = v('--ym-border');
-        Chart.defaults.plugins.tooltip.borderWidth = 1;
-        Chart.defaults.plugins.tooltip.padding = 10;
-
-        new Chart(document.getElementById('brewStatusChart'), {
-            type: 'bar',
-            data: {
-                labels: ['Fermenting', 'Conditioning', 'Ready', 'Archived'],
-                datasets: [{
-                    label: 'Batches',
-                    data: [{{ fermenting|length }}, {{ conditioning|length }}, {{ ready|length }}, {{ archived_count }}],
-                    backgroundColor: statusColors,
-                    borderRadius: 6,
-                    maxBarThickness: 48,
-                }],
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { precision: 0 } },
-                },
-            },
-        });
-
-        new Chart(document.getElementById('brewByType'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Beer', 'Mead', 'Cider', 'Other'],
-                datasets: [{
-                    data: [{{ beer }}, {{ mead }}, {{ cider }}, {{ other }}],
-                    backgroundColor: typeColors,
-                    borderColor: v('--ym-surface'),
-                    borderWidth: 3,
-                }],
-            },
-            options: {
-                cutout: '68%',
-                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } },
-            },
-        });
-    })();
-</script>
+<script src="{% static 'brews/js/dashboard-activity.js' %}"></script>
 {% endif %}
 {% endblock %}

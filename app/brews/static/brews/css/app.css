@@ -376,8 +376,64 @@ h1, h2, h3, h4, h5 {
     font-variant-numeric: tabular-nums;
 }
 
-.chart-card .card-body {
-    height: 280px;
+/* Dashboard stat tiles: proportional figures read better for a lone number. */
+.stat-tiles .stat-value {
+    display: block;
+    font-size: 1.6rem;
+    font-variant-numeric: normal;
+    line-height: 1.2;
+}
+
+.stat-sub {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.75rem;
+    color: var(--ym-muted);
+}
+
+.activity-chart {
+    position: relative;
+    height: 220px;
+}
+
+.activity-table summary {
+    font-size: 0.8rem;
+    color: var(--ym-muted);
+    cursor: pointer;
+}
+
+.activity-table .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--ym-text);
+    font-size: 0.85rem;
+    max-width: 20rem;
+}
+
+@media (max-width: 639.98px) {
+    .activity-chart {
+        height: 180px;
+    }
+
+    .stat-tiles {
+        gap: 0.5rem;
+    }
+
+    .stat-tiles .stat {
+        padding: 0.6rem 0.7rem;
+    }
+
+    .stat-tiles .stat-label {
+        font-size: 0.62rem;
+        letter-spacing: 0.04em;
+    }
+
+    .stat-tiles .stat-value {
+        font-size: 1.3rem;
+    }
+
+    .stat-tiles .stat-sub {
+        font-size: 0.7rem;
+    }
 }
 
 .section-title {

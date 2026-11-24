@@ -7,6 +7,7 @@ from django.db.models.functions import Lower # type: ignore
 from django.templatetags.static import static # type: ignore
 from django.urls import reverse # type: ignore
 from .attention import needs_attention
+from .stats import dashboard_stats, monthly_activity
 from .models import BrewSession, Recipe, RecipeAdjunct, RecipeGrain, RecipeHop
 from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeHopFormSet, BrewSessionForm
 from django.contrib.auth.forms import UserCreationForm # type: ignore
@@ -268,11 +269,16 @@ def dashboard(request):
     conditioning = list(sessions.filter(status='conditioning'))
     ready = sessions.filter(status='ready')
     archived_count = sessions.filter(status='archived').count()
-    beer_count = Recipe.objects.filter(owner=request.user, brew_type='beer').count()
-    mead_count = Recipe.objects.filter(owner=request.user, brew_type='mead').count()
-    cider_count = Recipe.objects.filter(owner=request.user, brew_type='cider').count()
-    other_count = Recipe.objects.filter(owner=request.user, brew_type='other').count()
+    activity = monthly_activity(request.user)
     return render(request, 'brews/dashboard.html', {
+        'stats': dashboard_stats(request.user),
+        'activity': activity,
+        'activity_chart': {
+            'labels': [month.strftime('%b') for month, _ in activity],
+            'titles': [month.strftime('%B %Y') for month, _ in activity],
+            'counts': [count for _, count in activity],
+        },
+        'activity_total': sum(count for _, count in activity),
         'attention': needs_attention(fermenting + conditioning),
         'board_columns': [
             ('fermenting', 'Fermenting', fermenting),
@@ -283,10 +289,6 @@ def dashboard(request):
         'conditioning': conditioning,
         'ready': ready,
         'archived_count': archived_count,
-        'beer': beer_count,
-        'mead': mead_count,
-        'cider': cider_count,
-        'other': other_count
     })
 
 
