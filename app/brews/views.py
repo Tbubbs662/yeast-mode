@@ -1,7 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect # type: ignore
 from django.contrib import messages # type: ignore
 from django.db import transaction # type: ignore
-from django.db.models import Prefetch # type: ignore
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Prefetch, Q # type: ignore
+from django.db.models.functions import Lower # type: ignore
 from django.urls import reverse # type: ignore
 from .models import BrewSession, Recipe, RecipeAdjunct, RecipeGrain, RecipeHop
 from .forms import RecipeForm, RecipeAdjunctFormSet, RecipeGrainFormSet, RecipeHopFormSet, BrewSessionForm
@@ -24,10 +25,61 @@ def sign_up(request):
         form = UserCreationForm()
     return render(request, 'brews/sign_up.html', { 'form': form, 'title': 'Sign up'})
 
+# Recipe list sort options: (query value, label, ordering).
+RECIPE_SORTS = [
+    ('updated', 'Recently updated', [F('updated_at').desc()]),
+    ('name', 'Name', [Lower('name')]),
+    ('abv', 'ABV', [F('abv_value').desc(nulls_last=True)]),
+    ('brewed', 'Most brewed', [F('batch_count').desc()]),
+]
+RECIPE_SORT_ORDERING = {key: ordering for key, _, ordering in RECIPE_SORTS}
+
+
 @login_required
 def recipe_list(request):
-    recipes = Recipe.objects.filter(owner=request.user).order_by('-created_at')
-    return render(request, 'brews/recipe_list.html', {'recipes': recipes})
+    """The user's recipes, narrowed by the ?q=, ?type= and ?sort= query string.
+
+    Unknown filter values are ignored rather than raising, so a stale
+    bookmark still shows the list.
+    """
+    query = request.GET.get('q', '').strip()
+    brew_type = request.GET.get('type', '')
+    if brew_type not in dict(Recipe.BREW_TYPE_CHOICES):
+        brew_type = ''
+    sort = request.GET.get('sort', '')
+    if sort not in RECIPE_SORT_ORDERING:
+        sort = 'updated'
+
+    all_recipes = Recipe.objects.filter(owner=request.user)
+    recipes = all_recipes.annotate(
+        batch_count=Count('sessions'),
+        abv_value=ExpressionWrapper(
+            (F('target_gravity') - F('target_final_gravity')) * 131.25,
+            output_field=DecimalField(),
+        ),
+    )
+    if query:
+        recipes = recipes.filter(Q(name__icontains=query) | Q(style__icontains=query))
+    if brew_type:
+        recipes = recipes.filter(brew_type=brew_type)
+    recipes = recipes.order_by(*RECIPE_SORT_ORDERING[sort], Lower('name'), 'pk')
+
+    # Clearing the filters keeps the chosen sort.
+    clear_url = reverse('recipe_list')
+    if sort != 'updated':
+        clear_url += f'?sort={sort}'
+
+    return render(request, 'brews/recipe_list.html', {
+        'recipes': recipes,
+        'clear_url': clear_url,
+        'total_count': all_recipes.count(),
+        'query': query,
+        'brew_type': brew_type,
+        'sort': sort,
+        'is_filtered': bool(query or brew_type),
+        'brew_type_choices': Recipe.BREW_TYPE_CHOICES,
+        'sort_choices': [(key, label) for key, label, _ in RECIPE_SORTS],
+    })
 
 @login_required
 def recipe_detail(request, pk):

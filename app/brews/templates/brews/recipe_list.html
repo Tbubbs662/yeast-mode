@@ -6,12 +6,45 @@
 <div class="page-header">
     <div>
         <h1>My Recipes</h1>
-        <p class="text-muted mb-0">{{ recipes|length }} recipe{{ recipes|length|pluralize }}</p>
+        <p class="text-muted mb-0">
+            {% if is_filtered %}{{ recipes|length }} of {% endif %}{{ total_count }} recipe{{ total_count|pluralize }}
+        </p>
     </div>
     <a href="{% url 'recipe_create' %}" class="btn btn-primary">
         <i class="bi bi-plus-lg"></i> New Recipe
     </a>
 </div>
+
+{% if total_count %}
+<form method="get" action="{% url 'recipe_list' %}" class="filter-bar" role="search" id="recipe-filters">
+    <div class="filter-search">
+        <label for="recipe-search" class="visually-hidden">Search recipes</label>
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input type="search" id="recipe-search" name="q" value="{{ query }}" class="form-control" placeholder="Search by name or style">
+    </div>
+    <div>
+        <label for="recipe-type" class="visually-hidden">Brew type</label>
+        <select id="recipe-type" name="type" class="form-select">
+            <option value="">All types</option>
+            {% for value, label in brew_type_choices %}
+                <option value="{{ value }}"{% if value == brew_type %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="recipe-sort" class="visually-hidden">Sort by</label>
+        <select id="recipe-sort" name="sort" class="form-select">
+            {% for value, label in sort_choices %}
+                <option value="{{ value }}"{% if value == sort %} selected{% endif %}>Sort: {{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-ghost">Apply</button>
+    {% if is_filtered %}
+        <a href="{{ clear_url }}" class="btn btn-ghost">Clear</a>
+    {% endif %}
+</form>
+{% endif %}
 
 {% if recipes %}
     <div class="row g-3">
@@ -32,13 +65,20 @@
                         <p class="card-text small">{{ recipe.description|truncatewords:20 }}</p>
                     {% endif %}
                     <div class="d-flex gap-3 mt-auto pt-2 small text-muted">
-                        <span><i class="bi bi-layers me-1"></i>{{ recipe.sessions.count }} batch{{ recipe.sessions.count|pluralize:"es" }}</span>
+                        <span><i class="bi bi-layers me-1"></i>{{ recipe.batch_count }} batch{{ recipe.batch_count|pluralize:"es" }}</span>
                         {% if recipe.abv %}<span><i class="bi bi-percent me-1"></i>{{ recipe.abv }}% ABV</span>{% endif %}
                     </div>
                 </div>
             </article>
         </div>
         {% endfor %}
+    </div>
+{% elif total_count %}
+    <div class="empty-state">
+        <i class="bi bi-search"></i>
+        <h3 class="mt-3">No matching recipes</h3>
+        <p class="text-muted">Nothing matches {% if query %}&ldquo;{{ query }}&rdquo;{% else %}those filters{% endif %}.</p>
+        <a href="{{ clear_url }}" class="btn btn-primary">Clear filters</a>
     </div>
 {% else %}
     <div class="empty-state">
@@ -50,4 +90,14 @@
         </a>
     </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Apply a new type or sort as soon as it's picked; the Apply button
+    // covers typed searches and browsers without JavaScript.
+    document.querySelectorAll('#recipe-filters select').forEach(function (select) {
+        select.addEventListener('change', function () { select.form.submit(); });
+    });
+</script>
 {% endblock %}

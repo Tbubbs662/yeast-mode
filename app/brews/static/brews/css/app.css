@@ -706,3 +706,38 @@ h1, h2, h3, h4, h5 {
     font-size: 0.9rem;
     color: var(--ym-muted);
 }
+
+/* --------------------------------------------------------------------------
+   Filter bar (recipe list)
+   -------------------------------------------------------------------------- */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.filter-search {
+    position: relative;
+    flex: 1 1 16rem;
+}
+
+.filter-search .bi {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ym-muted);
+    pointer-events: none;
+}
+
+.filter-search .form-control {
+    padding-left: 2.4rem;
+}
+
+@media (max-width: 575.98px) {
+    .filter-bar > div:not(.filter-search) {
+        flex: 1 1 40%;
+    }
+}

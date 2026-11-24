@@ -595,3 +595,100 @@ class CancelLinkTest(TestCase):
             f'<a href="{self.reverse("session_detail", args=[self.session.pk])}" class="btn btn-ghost">Cancel</a>',
             html=True,
         )
+
+
+class RecipeListFilterTest(TestCase):
+    """Search, brew-type filter and sort on the recipe list, all driven by the query string."""
+
+    def setUp(self):
+        from django.urls import reverse # type: ignore
+        self.url = reverse('recipe_list')
+        self.user = User.objects.create_user(username='brewer', password='brewer-pass-123')
+        self.client.force_login(self.user)
+
+        make = lambda **kw: Recipe.objects.create(owner=self.user, **kw)
+        self.ipa = make(name='Hazy IPA', style='New England IPA', brew_type='beer',
+                        target_gravity='1.065', target_final_gravity='1.012')  # 6.96%
+        self.stout = make(name='Oatmeal Stout', style='Stout', brew_type='beer',
+                          target_gravity='1.055', target_final_gravity='1.015')  # 5.25%
+        self.mead = make(name='Orange Blossom', style='Traditional', brew_type='mead',
+                         target_gravity='1.110', target_final_gravity='1.010')  # 13.13%
+        self.cider = make(name='apple Cider', brew_type='cider')  # no ABV
+        for n in range(2):
+            BrewSession.objects.create(recipe=self.stout, batch_number=str(n), brew_date='2026-07-14')
+        BrewSession.objects.create(recipe=self.cider, batch_number='1', brew_date='2026-07-14')
+
+        # Someone else's recipe never shows up.
+        other = User.objects.create_user(username='other', password='other-pass-123')
+        Recipe.objects.create(owner=other, name='Other IPA', style='IPA')
+
+    def names(self, **params):
+        response = self.client.get(self.url, params)
+        self.assertEqual(response.status_code, 200)
+        return [r.name for r in response.context['recipes']]
+
+    def test_search_matches_name_and_style_case_insensitively(self):
+        self.assertEqual(self.names(q='ipa'), ['Hazy IPA'])
+        self.assertEqual(self.names(q='stout'), ['Oatmeal Stout'])
+        self.assertEqual(self.names(q='TRADITIONAL'), ['Orange Blossom'])
+
+    def test_filter_by_brew_type(self):
+        self.assertCountEqual(self.names(type='beer'), ['Hazy IPA', 'Oatmeal Stout'])
+        self.assertEqual(self.names(type='mead'), ['Orange Blossom'])
+        self.assertEqual(self.names(type='other'), [])
+
+    def test_search_and_type_combine(self):
+        self.assertEqual(self.names(q='o', type='mead'), ['Orange Blossom'])
+
+    def test_sort_by_name(self):
+        self.assertEqual(self.names(sort='name'), ['apple Cider', 'Hazy IPA', 'Oatmeal Stout', 'Orange Blossom'])
+
+    def test_sort_by_abv_puts_missing_abv_last(self):
+        self.assertEqual(self.names(sort='abv'), ['Orange Blossom', 'Hazy IPA', 'Oatmeal Stout', 'apple Cider'])
+
+    def test_sort_by_most_brewed(self):
+        self.assertEqual(self.names(sort='brewed')[:2], ['Oatmeal Stout', 'apple Cider'])
+
+    def test_default_sort_is_recently_updated(self):
+        self.stout.notes = 'Bumped'
+        self.stout.save()
+        self.assertEqual(self.names()[0], 'Oatmeal Stout')
+
+    def test_unknown_values_fall_back(self):
+        response = self.client.get(self.url, {'type': 'wine', 'sort': 'bogus'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['recipes']), 4)
+        self.assertEqual(response.context['sort'], 'updated')
+        self.assertFalse(response.context['is_filtered'])
+
+    def test_form_reflects_current_filters(self):
+        response = self.client.get(self.url, {'q': 'stout', 'type': 'beer', 'sort': 'abv'})
+        self.assertContains(response, 'value="stout"')
+        self.assertContains(response, '<option value="beer" selected>Beer</option>', html=True)
+        self.assertContains(response, '<option value="abv" selected>Sort: ABV</option>', html=True)
+        self.assertContains(response, '1 of 4 recipes')
+
+    def test_no_matches_state_links_to_cleared_list(self):
+        response = self.client.get(self.url, {'q': 'lager', 'sort': 'name'})
+        self.assertContains(response, 'No matching recipes')
+        self.assertContains(response, f'href="{self.url}?sort=name"')
+        self.assertNotContains(response, 'No recipes yet')
+
+    def test_brand_new_user_sees_first_recipe_prompt_without_filters(self):
+        newbie = User.objects.create_user(username='newbie', password='newbie-pass-123')
+        self.client.force_login(newbie)
+        response = self.client.get(self.url)
+        self.assertContains(response, 'No recipes yet')
+        self.assertNotContains(response, 'id="recipe-filters"')
+
+    def test_batch_counts_do_not_add_queries_per_recipe(self):
+        with CaptureQueriesContext(connection) as ctx:
+            self.client.get(self.url)
+        baseline = len(ctx)
+        for n in range(3):
+            r = Recipe.objects.create(owner=self.user, name=f'Extra {n}')
+            BrewSession.objects.create(recipe=r, batch_number='1', brew_date='2026-07-14')
+        with CaptureQueriesContext(connection) as ctx:
+            response = self.client.get(self.url)
+        self.assertEqual(len(ctx), baseline)
+        self.assertContains(response, '2 batches')
